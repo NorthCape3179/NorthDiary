@@ -108,7 +108,7 @@ class MemoryUITests(unittest.TestCase):
         self.article('三', '2026-01-01')
         dialog = self.timeline()
         before = dialog.year.pos()
-        self.assertGreaterEqual(dialog.year.font().pixelSize(), 28)
+        self.assertGreaterEqual(dialog.year.font().pixelSize(), 24)
         QTest.keyClick(dialog.canvas, Qt.Key.Key_End)
         last = len(dialog.canvas.groups) - 1
         self.assertEqual(dialog.canvas.selected_index, last)
@@ -224,10 +224,10 @@ class MemoryUITests(unittest.TestCase):
     def test_plain_memory_text_keeps_adjacent_text_and_removes_legacy_images_and_scripts(self):
         self.assertEqual(plain_memory_text('<p>A<img src="attachments/x.png">B</p><script>bad()</script><p>C</p>'), 'AB\nC')
 
-    def test_header_animation_collapse_expand_retains_four_controls_and_right_anchor(self):
+    def test_header_animation_collapse_expand_retains_five_controls_and_right_anchor(self):
         tools = self.window.header_tools
         right = tools.geometry().right()
-        self.assertEqual(tools.tools_layout.count(), 4)
+        self.assertEqual(tools.tools_layout.count(), 5)
         QTest.mouseClick(tools.arrow, Qt.MouseButton.LeftButton)
         QTest.qWait(230)
         self.assertTrue(tools.collapsed)
@@ -238,7 +238,7 @@ class MemoryUITests(unittest.TestCase):
         QTest.qWait(230)
         self.assertFalse(tools.collapsed)
         self.assertFalse(tools.clip.isHidden())
-        self.assertTrue(self.window.light_theme_combo.isEnabled())
+        self.assertTrue(self.window.theme_combo.isEnabled())
         self.assertEqual(tools.arrow.arrowType(), Qt.ArrowType.RightArrow)
         self.assertEqual(tools.geometry().right(), right)
 
@@ -255,8 +255,8 @@ class MemoryUITests(unittest.TestCase):
         QTest.qWait(230)
         self.assertFalse(tools.collapsed)
         self.assertGreater(tools.clip.width(), 0)
-        self.assertTrue(self.window.dark_theme_combo.isEnabled())
-        self.assertEqual(self.window.dark_theme_combo.currentData(), 'wine')
+        self.assertTrue(self.window.theme_combo.isEnabled())
+        self.assertEqual(self.window.theme_combo.currentData(), 'wine')
 
     def test_header_state_reopens_and_ctrl_s_works_when_save_button_hidden(self):
         self.window.header_tools.set_collapsed(True, animate=False)
@@ -279,7 +279,11 @@ class MemoryUITests(unittest.TestCase):
         buttons = {button.text(): button for button in sidebar.findChildren(QPushButton)}
         layout = sidebar.layout()
         self.assertEqual(layout.indexOf(buttons['时间线总览']) + 1, layout.indexOf(buttons['文章总览']))
-        self.assertIn('随机回忆', buttons)
+        self.assertNotIn('随机回忆', buttons)
+        tools = self.window.header_tools.tools_layout
+        names = [tools.itemAt(i).widget().text() if isinstance(tools.itemAt(i).widget(), QPushButton) else '' for i in range(tools.count())]
+        self.assertEqual(names.index('随机回忆'), names.index('数据文件夹') + 1)
+        self.assertEqual(tools.itemAt(names.index('随机回忆')).widget(), self.window.random_memory_button)
         self.window.new_article()
         self.window.editor.setPlainText('未保存的正文')
         with patch.object(self.window.repository, 'save', side_effect=OSError('不可写')), \

@@ -58,11 +58,11 @@ def group_articles(articles):
 class TimelineCanvas(QAbstractScrollArea):
     selectedChanged = Signal(object)
     articleActivated = Signal(str)
-    ROW = 144
-    AXIS = 112
-    EVENTS = 150
-    CARD = 230
-    STEP = 242
+    ROW = 112
+    AXIS = 86
+    EVENTS = 118
+    CARD = 192
+    STEP = 202
 
     def __init__(self, groups, parent=None):
         super().__init__(parent)
@@ -110,22 +110,23 @@ class TimelineCanvas(QAbstractScrollArea):
     def max_offset(self, index):
         columns = math.ceil(len(self.groups[index].articles) / 2)
         available = max(1, self.viewport().width() - self.events_x(index) - 12)
-        return max(0, columns * self.STEP - 12 - available)
+        content_width = (columns - 1) * self.STEP + self.CARD if columns else 0
+        return max(0, content_width - available)
 
     def events_x(self, index):
-        return self.EVENTS if self.groups[index].kind == 'day' else 292
+        return self.EVENTS if self.groups[index].kind == 'day' else 232
 
     def row_at(self, point):
         index = int(math.floor((point.y() - self.viewport().height() / 2 + self.verticalScrollBar().value()) / self.ROW + .5))
-        if 0 <= index < len(self.groups) and abs(point.y() - self.center_y(index)) <= 56:
+        if 0 <= index < len(self.groups) and abs(point.y() - self.center_y(index)) <= 44:
             return index
         return None
 
     def card_rect(self, index, position):
         active = index == self.selected_index
-        height = 44 if active else 36
+        height = 34 if active else 28
         center = self.center_y(index)
-        y = center - height / 2 if len(self.groups[index].articles) == 1 else center - 48 + position % 2 * 52
+        y = center - height / 2 if len(self.groups[index].articles) == 1 else center - 36 + position % 2 * 40
         x = self.events_x(index) + position // 2 * self.STEP - self.horizontal_offsets.get(index, 0)
         return QRectF(x, y, self.CARD, height)
 
@@ -233,41 +234,41 @@ class TimelineCanvas(QAbstractScrollArea):
                 fill.setAlpha(30)
                 painter.setBrush(fill)
                 painter.setPen(Qt.PenStyle.NoPen)
-                painter.drawRoundedRect(QRectF(4, center - 61, self.viewport().width() - 12, 122), 12, 12)
+                painter.drawRoundedRect(QRectF(4, center - 47, self.viewport().width() - 12, 94), 12, 12)
             painter.setBrush(color('#82ad8b', self))
             painter.setPen(QPen(self.palette().color(QPalette.ColorRole.Base), 2))
             if group.kind == 'day':
-                radius = 7 if active else 5
+                radius = 6 if active else 4
                 painter.drawEllipse(QPointF(self.AXIS, center), radius, radius)
             else:
                 painter.setBrush(self.palette().color(QPalette.ColorRole.Base))
                 painter.setPen(QPen(color('#82ad8b', self), 2))
-                side = 16 if group.kind == 'year' else 12
+                side = 14 if group.kind == 'year' else 10
                 painter.drawRect(QRectF(self.AXIS - side / 2, center - side / 2, side, side))
             font = QFont(self.font())
-            font.setPixelSize(18 if active else 14)
+            font.setPixelSize(16 if active else 13)
             font.setWeight(QFont.Weight.DemiBold if active else QFont.Weight.Normal)
             painter.setFont(font)
             painter.setPen(self.palette().color(QPalette.ColorRole.Text))
             if group.kind == 'day':
-                painter.drawText(QRectF(8, center - 36, self.AXIS - 24, 72),
+                painter.drawText(QRectF(8, center - 29, self.AXIS - 20, 58),
                                  Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter, group.label)
             else:
-                font.setPixelSize((26 if active else 24) if group.kind == 'year' else (23 if active else 21))
+                font.setPixelSize((22 if active else 20) if group.kind == 'year' else (19 if active else 17))
                 font.setWeight(QFont.Weight.DemiBold)
                 painter.setFont(font)
-                painter.drawText(QRectF(self.AXIS + 22, center - 22, 150, 44), Qt.AlignmentFlag.AlignVCenter, group.label)
+                painter.drawText(QRectF(self.AXIS + 18, center - 20, 118, 40), Qt.AlignmentFlag.AlignVCenter, group.label)
                 if group.articles and group.kind in ('year', 'month'):
                     font.setPixelSize(11)
                     font.setWeight(QFont.Weight.Normal)
                     painter.setFont(font)
                     painter.setPen(color('#75827a', self))
-                    painter.drawText(QRectF(self.AXIS + 24, center + 16, 140, 22), Qt.AlignmentFlag.AlignVCenter,
+                    painter.drawText(QRectF(self.AXIS + 20, center + 14, 118, 20), Qt.AlignmentFlag.AlignVCenter,
                                      '月份未详' if group.kind == 'year' else '日期未详')
             painter.save()
             left = self.events_x(index)
-            painter.setClipRect(QRectF(left, center - 58, max(0, self.viewport().width() - left - 12), 116))
-            font.setPixelSize(16 if active else 14)
+            painter.setClipRect(QRectF(left, center - 44, max(0, self.viewport().width() - left - 12), 88))
+            font.setPixelSize(14 if active else 12)
             font.setWeight(QFont.Weight.DemiBold if active else QFont.Weight.Normal)
             painter.setFont(font)
             offset = self.horizontal_offsets.get(index, 0)
@@ -302,10 +303,10 @@ class TimelineOverview(QDialog):
         self.year = QLabel()
         self.year.setTextFormat(Qt.TextFormat.PlainText)
         font = QFont(self.font())
-        font.setPixelSize(30)
+        font.setPixelSize(24)
         font.setWeight(QFont.Weight.DemiBold)
         self.year.setFont(font)
-        self.year.setStyleSheet('QLabel { font-size: 30px; font-weight: 600; background: transparent; }')
+        self.year.setStyleSheet('QLabel { font-size: 24px; font-weight: 600; background: transparent; }')
         row.addWidget(self.year)
         row.addStretch()
         layout.addLayout(row)

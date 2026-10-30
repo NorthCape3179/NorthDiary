@@ -1,4 +1,4 @@
-"""A right-anchored, animated clip for the four existing header controls."""
+"""A right-anchored, animated clip for the header controls."""
 from PySide6.QtCore import Qt, QSize, QEvent, Signal, QPropertyAnimation, QParallelAnimationGroup, QEasingCurve
 from PySide6.QtWidgets import QWidget, QHBoxLayout, QToolButton, QSizePolicy, QGraphicsOpacityEffect, QComboBox
 

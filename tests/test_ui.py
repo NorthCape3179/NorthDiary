@@ -407,7 +407,8 @@ class WindowTests(unittest.TestCase):
         self.window.new_article()
         self.window.date.setDate(QDate(2026, 7, 15))
         for key in ('light','dark','cream','wine','burgundy','citrus','blue','gray'):
-            combo = self.window.dark_theme_combo if key in ('dark', 'wine') else self.window.light_theme_combo
+            self.window.set_theme(key in ('dark', 'wine'))
+            combo = self.window.theme_combo
             combo.setCurrentIndex(combo.findData(key))
             self.assertEqual(self.window.property('colorTheme'), key)
             self.assertIn('黑夜' if key in ('dark','wine') else '白天', self.window.paper.name)
@@ -532,12 +533,14 @@ class WindowTests(unittest.TestCase):
         self.assertEqual(self.window.article_list.ids(), [second, first])
         self.window.sort_combo.setCurrentIndex(self.window.sort_combo.findData('created_asc'))
         self.assertEqual(self.window.article_list.ids(), [first, second])
-        self.assertEqual(self.window.light_theme_combo.count(), 7)
-        self.assertEqual(self.window.dark_theme_combo.count(), 3)
-        self.window.light_theme_combo.setCurrentIndex(self.window.light_theme_combo.findData('cream'))
+        self.window.set_theme(False)
+        self.assertEqual(self.window.theme_combo.count(), 6)
+        self.window.theme_combo.setCurrentIndex(self.window.theme_combo.findData('cream'))
         self.assertEqual(self.window.palette().color(QPalette.ColorRole.Window).name(), '#f4ecdc')
         self.assertEqual(self.window.paper.name, '夏天白天.png')
-        self.window.dark_theme_combo.setCurrentIndex(self.window.dark_theme_combo.findData('wine'))
+        self.window.set_theme(True)
+        self.assertEqual(self.window.theme_combo.count(), 2)
+        self.window.theme_combo.setCurrentIndex(self.window.theme_combo.findData('wine'))
         self.assertEqual(self.window.palette().color(QPalette.ColorRole.Window).name(), '#191a1c')
         self.assertEqual(self.window.paper.name, '夏天黑夜.png')
         other = MainWindow(self.database)

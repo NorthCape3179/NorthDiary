@@ -129,7 +129,7 @@ class TagPicker(QWidget):
                 row = QHBoxLayout(widget)
                 row.setContentsMargins(9, 2, 3, 2)
                 row.setSpacing(3)
-                text = QLabel(name + (' · 临时' if temporary else ''))
+                text = QLabel(name)
                 text.setMaximumWidth(145)
                 text.setToolTip(name)
                 text.setTextFormat(Qt.TextFormat.PlainText)

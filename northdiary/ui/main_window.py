@@ -29,6 +29,7 @@ from northdiary.ui.category_picker import CategoryPicker
 from northdiary.ui.overview_dialog import OverviewDialog
 from northdiary.ui.date_picker import DateInput, matches_day
 from northdiary.ui.header_tools import HeaderTools
+from northdiary.ui.about_dialog import AboutButton, AboutDialog
 
 
 def label(text, name='muted'):
@@ -99,22 +100,24 @@ class MainWindow(QMainWindow):
         header.addWidget(label('NorthDiary', 'brand'))
         header.addStretch()
         self.header_tools = HeaderTools()
-        self.light_theme_combo = QComboBox()
-        self.dark_theme_combo = QComboBox()
-        for combo, title, choices in (
-            (self.light_theme_combo, '浅色主题', [('鼠尾草绿白', 'light'), ('浅咖米白', 'cream'), ('酒红米白', 'burgundy'), ('橙绿米白', 'citrus'), ('蓝与纯白', 'blue'), ('灰与浅灰', 'gray')]),
-            (self.dark_theme_combo, '深色主题', [('灰黑夜色', 'dark'), ('黑红夜色', 'wine')]),
-        ):
-            combo.addItem(title, None)
-            for text, key in choices: combo.addItem(text, key)
-            combo.setFixedWidth(124)
-            combo.setAccessibleName(title)
-            combo.setToolTip(title)
-            combo.currentIndexChanged.connect(lambda _, c=combo: self.choose_theme(c))
-            self.header_tools.add_widget(combo)
+        self.theme_mode_button = self.button('切换深色', lambda: self.set_theme(not bool(self.property('darkTheme'))))
+        self.theme_mode_button.setFixedWidth(96)
+        self.theme_mode_button.setAccessibleName('切换深浅主题')
+        self.header_tools.add_widget(self.theme_mode_button)
+        self.theme_combo = QComboBox()
+        self.theme_combo.setFixedWidth(136)
+        self.theme_combo.setAccessibleName('主题配色')
+        self.theme_combo.setToolTip('选择当前深浅模式下的配色')
+        self.theme_combo.currentIndexChanged.connect(lambda _: self.choose_theme(self.theme_combo))
+        self.header_tools.add_widget(self.theme_combo)
         self.header_tools.add_widget(self.button('数据文件夹', lambda: QDesktopServices.openUrl(QUrl.fromLocalFile(str(self.database.root)))))
+        self.random_memory_button = self.button('随机回忆', self.open_random_memory)
+        self.header_tools.add_widget(self.random_memory_button)
         self.header_tools.add_widget(self.button('保存  Ctrl+S', lambda: self.save(True)))
         header.addWidget(self.header_tools)
+        self.about_button = AboutButton()
+        self.about_button.clicked.connect(self.open_about)
+        header.addWidget(self.about_button)
         outer.addLayout(header)
         self.splitter = QSplitter(Qt.Orientation.Horizontal)
         self.splitter.setChildrenCollapsible(False)
@@ -170,7 +173,6 @@ class MainWindow(QMainWindow):
         left.addWidget(self.article_list, 1)
         left.addWidget(self.button('时间线总览', self.open_timeline_overview))
         left.addWidget(self.button('文章总览', self.open_overview))
-        left.addWidget(self.button('随机回忆', self.open_random_memory))
         left.addWidget(self.button('人物档案', self.open_people))
         self.trash_button = self.button('回收站', self.open_trash)
         left.addWidget(self.trash_button)
@@ -447,10 +449,17 @@ class MainWindow(QMainWindow):
             name = 'dark' if dark else 'light'
         dark = name in ('dark', 'wine')
         apply_theme(self, dark, name)
-        for combo in (self.light_theme_combo, self.dark_theme_combo):
-            combo.blockSignals(True)
-            combo.setCurrentIndex(max(0, combo.findData(name)))
-            combo.blockSignals(False)
+        choices = ([('灰黑夜色', 'dark'), ('黑红夜色', 'wine')] if dark else
+                   [('鼠尾草绿白', 'light'), ('浅咖米白', 'cream'), ('酒红米白', 'burgundy'),
+                    ('橙绿米白', 'citrus'), ('蓝与纯白', 'blue'), ('灰与浅灰', 'gray')])
+        self.theme_combo.blockSignals(True)
+        self.theme_combo.clear()
+        for title, key in choices:
+            self.theme_combo.addItem(title, key)
+        self.theme_combo.setCurrentIndex(self.theme_combo.findData(name))
+        self.theme_combo.blockSignals(False)
+        self.theme_mode_button.setText('切换浅色' if dark else '切换深色')
+        self.theme_mode_button.setToolTip('当前为深色，点击切换浅色' if dark else '当前为浅色，点击切换深色')
         self.ui_settings.setValue('dark', dark)
         self.ui_settings.setValue('theme_name', name)
         self.ui_settings.setValue('last_dark_theme' if dark else 'last_light_theme', name)
@@ -1204,6 +1213,11 @@ class MainWindow(QMainWindow):
             return
         from northdiary.ui.timeline_overview import TimelineOverview
         dialog = TimelineOverview(self.repository, self.attachments, self)
+        dialog.setAttribute(Qt.WidgetAttribute.WA_DeleteOnClose)
+        dialog.exec()
+
+    def open_about(self):
+        dialog = AboutDialog(self)
         dialog.setAttribute(Qt.WidgetAttribute.WA_DeleteOnClose)
         dialog.exec()
 

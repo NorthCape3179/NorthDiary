@@ -1,4 +1,5 @@
 """Person cards, profiles and the article person picker share one catalog."""
+from html import escape
 from PySide6.QtCore import Qt, QSize, Signal, QRectF
 from PySide6.QtGui import QPainter, QPen, QFont, QColor
 from PySide6.QtWidgets import (
@@ -12,9 +13,15 @@ from northdiary.ui.theme import color, themed_css, theme_name, apply_theme
 from PySide6.QtGui import QPalette
 
 
+def relationship_color(value, widget):
+    name = theme_name(widget)
+    dark = name in ('dark', 'wine') if name else widget.palette().color(QPalette.ColorRole.Window).lightness() < 128
+    return QColor(themed_css(value, dark, name))
+
+
 def relationship_text(person):
     normal = person.get('relationships', [])
-    temporary = [name + '（临时）' for name in person.get('temporary_relationships', [])]
+    temporary = person.get('temporary_relationships', [])
     return '、'.join(normal + temporary) or '未设置关系'
 
 
@@ -69,9 +76,23 @@ class PersonCard(QAbstractButton):
         p.setPen(color('#75827a', self))
         p.drawText(QRectF(10, 141, 128, 22), Qt.AlignmentFlag.AlignCenter,
                    p.fontMetrics().elidedText(self.person['code'], Qt.TextElideMode.ElideRight, 126))
-        relation = relationship_text(self.person)
-        p.drawText(QRectF(10, 170, 128, 22), Qt.AlignmentFlag.AlignCenter,
-                   p.fontMetrics().elidedText(relation, Qt.TextElideMode.ElideRight, 126))
+        relation_tags = [(name, False) for name in self.person.get('relationships', [])]
+        relation_tags += [(name, True) for name in self.person.get('temporary_relationships', [])]
+        x = 10
+        for name, temporary in relation_tags:
+            if x >= 126: break
+            available = 138 - x
+            text = p.fontMetrics().elidedText(name, Qt.TextElideMode.ElideRight, max(1, available - 12))
+            width = min(available, p.fontMetrics().horizontalAdvance(text) + 12)
+            p.setPen(Qt.PenStyle.NoPen)
+            p.setBrush(relationship_color('#eee4d3' if temporary else '#dfe9dc', self))
+            p.drawRoundedRect(QRectF(x, 170, width, 22), 7, 7)
+            p.setPen(relationship_color('#273b37', self))
+            p.drawText(QRectF(x + 6, 170, width - 12, 22), Qt.AlignmentFlag.AlignCenter, text)
+            x += width + 4
+        if not relation_tags:
+            p.setPen(color('#75827a', self))
+            p.drawText(QRectF(10, 170, 128, 22), Qt.AlignmentFlag.AlignCenter, '未设置关系')
         if self.person['starred']:
             p.setPen(color('#315c4d', self)); p.drawText(QRectF(119, 8, 22, 22), Qt.AlignmentFlag.AlignCenter, '★')
         if self.person['pinned']:
@@ -250,7 +271,13 @@ class PeopleDialog(QDialog):
         for name, title in [('name', '姓名'), ('code', '代号'), ('birth_date', '出生年月日'), ('met_date', '相遇时间'), ('met_how', '相遇方式')]:
             value = QLabel(person[name] or '未详'); value.setTextFormat(Qt.TextFormat.PlainText); value.setWordWrap(True)
             value.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse); form.addRow(title, value)
-        relation = QLabel(relationship_text(person)); relation.setTextFormat(Qt.TextFormat.PlainText); relation.setWordWrap(True)
+        tags = [(name, False) for name in person.get('relationships', [])]
+        tags += [(name, True) for name in person.get('temporary_relationships', [])]
+        relation = QLabel(' '.join(
+            '<span style="background-color:' + relationship_color('#eee4d3' if temporary else '#dfe9dc', self).name()
+            + ';color:' + relationship_color('#273b37', self).name() + ';">&nbsp;' + escape(name) + '&nbsp;</span>'
+            for name, temporary in tags) or '未设置关系')
+        relation.setTextFormat(Qt.TextFormat.RichText); relation.setWordWrap(True)
         form.addRow('关系', relation)
         layout.addLayout(form); layout.addWidget(QLabel('相关事件'))
         events = QListWidget(); events.setMinimumHeight(180)

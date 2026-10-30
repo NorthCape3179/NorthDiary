@@ -239,6 +239,11 @@ build/
 # Per-user encrypted GitHub login; never commit account credentials.
 github.credentials
 
-# Generated isolated demo data
+# Preserve reviewed build specs; exclude validation and source bundles.
+!packaging/*.spec
+scratch-data/
+release/
+*.epub
+github.credentials
+
 demo-data/
-ui.ini
