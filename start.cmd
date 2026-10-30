@@ -6,7 +6,7 @@ if not exist ".venv\Scripts\python.exe" (
     ".venv\Scripts\python.exe" -m pip install -r requirements.txt
     if errorlevel 1 goto fail
 )
-".venv\Scripts\python.exe" -c "import PySide6" >nul 2>&1
+".venv\Scripts\python.exe" -c "import PySide6, ebooklib, lxml.html" >nul 2>&1
 if errorlevel 1 (
     ".venv\Scripts\python.exe" -m pip install -r requirements.txt
     if errorlevel 1 goto fail
@@ -18,3 +18,4 @@ exit /b 0
 echo Startup failed. Please keep this window and share the error message.
 pause
 exit /b 1
+

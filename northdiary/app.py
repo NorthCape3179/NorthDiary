@@ -5,6 +5,7 @@ from pathlib import Path
 from PySide6.QtCore import QLockFile, QStandardPaths
 from PySide6.QtWidgets import QApplication, QMessageBox
 
+from northdiary import __version__
 from northdiary.storage.database import Database
 from northdiary.ui.main_window import MainWindow
 
@@ -15,6 +16,7 @@ def main():
     args = parser.parse_args()
     app = QApplication(sys.argv[:1])
     app.setApplicationName('NorthDiary')
+    app.setApplicationVersion(__version__)
     app.setOrganizationName('NorthDiary')
     app.setStyle('Fusion')
     root = args.data_dir or Path(QStandardPaths.writableLocation(QStandardPaths.StandardLocation.AppLocalDataLocation))
@@ -36,3 +38,4 @@ def main():
     finally:
         database.close()
         lock.unlock()
+

@@ -52,7 +52,7 @@ class ArticleRepository:
         sql += ' ORDER BY ' + ('a.pinned DESC,' if pinned_first else '') + orders[sort] + ',a.created_at DESC,a.id ASC'
         return [Article(**dict(row)) for row in self.db.execute(sql, args)]
 
-    def save(self, article_id, title, diary_date, body_html, body_text, categories, tags, temporary_tags=None):
+    def save(self, article_id, title, diary_date, body_html, body_text, categories, tags, temporary_tags=None, people=None):
         # Content and organization commit together, never partially.
         with self.db:
             cursor = self.db.execute('''UPDATE articles SET title=?,diary_date=?,body_html=?,
@@ -73,6 +73,10 @@ class ArticleRepository:
                 self.db.execute('DELETE FROM article_temporary_tags WHERE article_id=?', (article_id,))
                 for name in dict.fromkeys(n.strip() for n in temporary_tags if n.strip()):
                     self.db.execute('INSERT INTO article_temporary_tags VALUES (?,?)', (article_id, name))
+            if people is not None:
+                self.db.execute('DELETE FROM article_people WHERE article_id=?', (article_id,))
+                for key in dict.fromkeys(people):
+                    self.db.execute('INSERT INTO article_people VALUES (?,?)', (article_id, key))
 
     def tags(self):
         return [r[0] for r in self.db.execute('SELECT name FROM tags ORDER BY name')]
@@ -140,3 +144,4 @@ class ArticleRepository:
                 slots = sorted(a.sort_order for a in group)
                 for article, position in zip(group, slots):
                     self.db.execute('UPDATE articles SET sort_order=? WHERE id=?', (position, article.id))
+

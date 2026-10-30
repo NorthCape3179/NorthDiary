@@ -235,3 +235,10 @@ attachments/
 .env.*
 dist/
 build/
+
+# Per-user encrypted GitHub login; never commit account credentials.
+github.credentials
+
+# Generated isolated demo data
+demo-data/
+ui.ini

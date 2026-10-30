@@ -1,13 +1,16 @@
 from PySide6.QtCore import Signal, Qt
 from PySide6.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QComboBox, QPushButton, QMenu, QInputDialog, QListWidget, QListWidgetItem, QLabel
+from northdiary.ui.theme import style_local, theme_name, apply_theme
+from PySide6.QtGui import QPalette
 from northdiary.ui.controls import ComboBox as QComboBox, MenuButton
 
 
 class TagPicker(QWidget):
     changed = Signal()
 
-    def __init__(self, parent=None):
+    def __init__(self, parent=None, *, owner_label='文章'):
         super().__init__(parent)
+        self.owner_label = owner_label
         self.setMinimumHeight(44)
         self.normal_names = []
         self.temporary_names = []
@@ -26,11 +29,12 @@ class TagPicker(QWidget):
         self.add_button = MenuButton('＋')
         self.add_button.setFixedSize(32, 32)
         self.add_button.setStyleSheet('QPushButton { padding: 0; font-size: 20px; background: #e0e9dd; border-radius: 8px; } QPushButton::menu-indicator { image: none; width: 0px; }')
+        self.add_button.setAccessibleName('新建关系标签' if owner_label == '人物' else '新建标签')
         self.add_button.setToolTip('新建普通标签或临时标签')
         menu = QMenu(self.add_button)
         menu.setAttribute(Qt.WidgetAttribute.WA_NoMouseReplay)
         menu.addAction('普通标签（以后可选）', lambda: self.create(False))
-        menu.addAction('临时标签（仅此文章）', lambda: self.create(True))
+        menu.addAction(f'临时标签（仅此{self.owner_label}）', lambda: self.create(True))
         self.add_button.setMenu(menu)
         row.addWidget(self.add_button)
         layout.addLayout(row)
@@ -46,6 +50,16 @@ class TagPicker(QWidget):
         layout.addWidget(self.selected)
         self.refresh()
 
+    def showEvent(self, event):
+        super().showEvent(event)
+        self.refresh_theme()
+
+    def refresh_theme(self):
+        dark = theme_name(self) in ('dark', 'wine') if theme_name(self) else self.palette().color(QPalette.ColorRole.Window).lightness() < 128
+        for widget in [self, *self.findChildren(QWidget)]:
+            style_local(widget, dark)
+        self.update()
+
     def set_values(self, normal, temporary):
         self.normal_names = list(normal)
         self.temporary_names = list(temporary)
@@ -57,7 +71,7 @@ class TagPicker(QWidget):
 
     def refresh_combo(self):
         self.combo.clear()
-        self.combo.addItem('选择已有标签…', None)
+        self.combo.addItem('选择关系标签…' if self.owner_label == '人物' else '选择已有标签…', None)
         for name in sorted(set(self.catalog + self.normal_names)):
             self.combo.addItem(name, name)
 
@@ -69,7 +83,20 @@ class TagPicker(QWidget):
 
     def create(self, temporary):
         title = '新建临时标签' if temporary else '新建普通标签'
-        name, ok = QInputDialog.getText(self, title, '标签名称')
+        if self.owner_label == '人物':
+            dialog = QInputDialog(self)
+            dialog.setWindowTitle('新建临时关系标签' if temporary else '新建普通关系标签')
+            dialog.setLabelText('仅当前人物使用' if temporary else '保存人物后可供其他人物选择')
+            dialog.setOkButtonText('添加'); dialog.setCancelButtonText('取消')
+            dialog.resize(400, 180)
+            name_theme = theme_name(self)
+            dark = theme_name(self) in ('dark', 'wine') if theme_name(self) else self.palette().color(QPalette.ColorRole.Window).lightness() < 128
+            apply_theme(dialog, dark, name_theme)
+            ok = dialog.exec() == QInputDialog.DialogCode.Accepted
+            name = dialog.textValue()
+            dialog.deleteLater()
+        else:
+            name, ok = QInputDialog.getText(self, title, '标签名称')
         if ok and name.strip():
             self.add_tag(name.strip(), temporary)
 
@@ -98,7 +125,7 @@ class TagPicker(QWidget):
                 widget = QWidget()
                 widget.setObjectName('tagChip')
                 color = '#eee4d3' if temporary else '#dfe9dc'
-                widget.setStyleSheet(f'QWidget#tagChip {{ background: {color}; border-radius: 12px; }}')
+                widget.setStyleSheet(f'QWidget#tagChip {{ background: {color}; border: 1px solid #d4ddd1; border-radius: 12px; }} QLabel {{ background: transparent; color: #273b37; }}')
                 row = QHBoxLayout(widget)
                 row.setContentsMargins(9, 2, 3, 2)
                 row.setSpacing(3)
@@ -108,7 +135,7 @@ class TagPicker(QWidget):
                 text.setTextFormat(Qt.TextFormat.PlainText)
                 row.addWidget(text, 1)
                 remove = QPushButton('×')
-                remove.setToolTip('从当前文章移除标签')
+                remove.setToolTip(f'从当前{self.owner_label}移除标签')
                 remove.setFixedSize(24, 24)
                 remove.setStyleSheet('QPushButton { padding: 0; border: none; background: transparent; color: #708273; font-size: 16px; } QPushButton:hover { color: #273b37; }')
                 remove.clicked.connect(lambda checked=False, n=name, t=temporary: self.remove_tag(n, t))
@@ -116,3 +143,4 @@ class TagPicker(QWidget):
                 item.setSizeHint(widget.sizeHint())
                 self.selected.addItem(item)
                 self.selected.setItemWidget(item, widget)
+        self.refresh_theme()

@@ -4,7 +4,7 @@ from northdiary.models import ExportSelection
 
 
 class Exporter(Protocol):
-    """Future EPUB/PDF adapters consume the same ordered selection."""
+    """EPUB/PDF adapters consume the same ordered selection."""
     def export(self, selection: ExportSelection, destination: Path) -> Path: ...
 
 
@@ -17,3 +17,4 @@ def validate_selection(repository, selection: ExportSelection):
     if any(article.deleted_at for article in articles):
         raise ValueError('不能导出回收站中的文章')
     return articles
+

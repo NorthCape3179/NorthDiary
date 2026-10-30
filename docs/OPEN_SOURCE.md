@@ -10,3 +10,4 @@
 文档参考：https://doc.qt.io/qtforpython-6/PySide6/QtWidgets/QTextEdit.html
 
 PySide6 为第三方依赖，不纳入本项目原创代码声明。正式分发 EXE 前应收录对应版本的 Qt/PySide6 许可和第三方声明，并复核打包方式。本轮没有生成发布包。
+

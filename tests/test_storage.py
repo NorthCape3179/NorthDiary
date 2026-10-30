@@ -10,7 +10,7 @@ from northdiary.models import ExportSelection
 from northdiary.services.attachments import AttachmentService
 from northdiary.services.backup import BackupService
 from northdiary.services.exporting import validate_selection
-from northdiary.storage.database import Database, SCHEMA
+from northdiary.storage.database import Database, SCHEMA, SCHEMA_VERSION
 from northdiary.storage.repository import ArticleRepository
 
 
@@ -66,7 +66,7 @@ class StorageTests(unittest.TestCase):
         migrated = Database(root)
         try:
             self.assertEqual(ArticleRepository(migrated).tags(), ['旧标签'])
-            self.assertEqual(migrated.connection.execute('PRAGMA user_version').fetchone()[0], 3)
+            self.assertEqual(migrated.connection.execute('PRAGMA user_version').fetchone()[0], SCHEMA_VERSION)
         finally:
             migrated.close()
         snapshots = list((root / 'backups').glob('*.sqlite3'))
@@ -215,3 +215,4 @@ class StorageTests(unittest.TestCase):
 
 if __name__ == '__main__':
     unittest.main()
+

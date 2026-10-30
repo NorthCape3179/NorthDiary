@@ -7,7 +7,11 @@ from PySide6.QtWidgets import (
     QLineEdit, QDateEdit, QListWidget, QListWidgetItem, QComboBox, QFileDialog, QMessageBox, QInputDialog, QScrollArea, QFrame, QToolButton, QMenu,
 )
 
+from northdiary import __version__
 from northdiary.services.attachments import AttachmentService
+from northdiary.services.epub import EpubExporter
+from northdiary.services.importing import EpubImporter
+from northdiary.ui.export_dialog import ExportDialog
 from northdiary.services.backup import BackupService
 from northdiary.storage.repository import ArticleRepository
 from northdiary.ui.editor import ArticleEditor
@@ -24,6 +28,7 @@ from northdiary.ui.image_board import ImageBoard
 from northdiary.ui.category_picker import CategoryPicker
 from northdiary.ui.overview_dialog import OverviewDialog
 from northdiary.ui.date_picker import DateInput, matches_day
+from northdiary.ui.header_tools import HeaderTools
 
 
 def label(text, name='muted'):
@@ -40,6 +45,7 @@ class MainWindow(QMainWindow):
         self.repository = ArticleRepository(database)
         self.attachments = AttachmentService(database)
         self.backups = BackupService(database)
+        self.person_ids = []
         self.current_id = None
         self.loading = False
         self.dirty = False
@@ -49,7 +55,7 @@ class MainWindow(QMainWindow):
         self.browse_date = None
         self.list_mode = 'all'
         self.sort_key = 'created_desc'
-        self.setWindowTitle('NorthDiary · 留下值得记住的日常')
+        self.setWindowTitle(f'NorthDiary v{__version__} · 留下值得记住的日常')
         self.resize(1280, 820)
         self.setMinimumSize(1000, 640)
         self.setStyleSheet(STYLE)
@@ -60,6 +66,8 @@ class MainWindow(QMainWindow):
         self.build_ui()
         self.button_feedback = ButtonFeedback(self)
         self.ui_settings = QSettings(str(database.root / 'ui.ini'), QSettings.Format.IniFormat)
+        self.header_tools.set_collapsed(self.ui_settings.value('header_collapsed', False, type=bool), animate=False)
+        self.header_tools.collapsedChanged.connect(self.remember_header_state)
         self.recent_ids = self.ui_settings.value('recent_articles', [], type=list)
         saved_sort = self.ui_settings.value('article_sort', 'created_desc')
         index = self.sort_combo.findData(saved_sort)
@@ -90,6 +98,7 @@ class MainWindow(QMainWindow):
         header = QHBoxLayout()
         header.addWidget(label('NorthDiary', 'brand'))
         header.addStretch()
+        self.header_tools = HeaderTools()
         self.light_theme_combo = QComboBox()
         self.dark_theme_combo = QComboBox()
         for combo, title, choices in (
@@ -102,9 +111,10 @@ class MainWindow(QMainWindow):
             combo.setAccessibleName(title)
             combo.setToolTip(title)
             combo.currentIndexChanged.connect(lambda _, c=combo: self.choose_theme(c))
-            header.addWidget(combo)
-        header.addWidget(self.button('数据文件夹', lambda: QDesktopServices.openUrl(QUrl.fromLocalFile(str(self.database.root)))))
-        header.addWidget(self.button('保存  Ctrl+S', lambda: self.save(True)))
+            self.header_tools.add_widget(combo)
+        self.header_tools.add_widget(self.button('数据文件夹', lambda: QDesktopServices.openUrl(QUrl.fromLocalFile(str(self.database.root)))))
+        self.header_tools.add_widget(self.button('保存  Ctrl+S', lambda: self.save(True)))
+        header.addWidget(self.header_tools)
         outer.addLayout(header)
         self.splitter = QSplitter(Qt.Orientation.Horizontal)
         self.splitter.setChildrenCollapsible(False)
@@ -158,7 +168,10 @@ class MainWindow(QMainWindow):
         self.article_list.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
         self.article_list.customContextMenuRequested.connect(self.show_article_menu)
         left.addWidget(self.article_list, 1)
+        left.addWidget(self.button('时间线总览', self.open_timeline_overview))
         left.addWidget(self.button('文章总览', self.open_overview))
+        left.addWidget(self.button('随机回忆', self.open_random_memory))
+        left.addWidget(self.button('人物档案', self.open_people))
         self.trash_button = self.button('回收站', self.open_trash)
         left.addWidget(self.trash_button)
         self.search.textChanged.connect(self.filter_search)
@@ -217,8 +230,13 @@ class MainWindow(QMainWindow):
         row.addWidget(self.date)
         self.timeline = Timeline()
         self.date.dateChanged.connect(lambda date: self.timeline.setDate(date) if not self.loading or not self.browse_date else None)
-        self.timeline.dateSelected.connect(self.browse_day)
-        self.timeline.datePreviewed.connect(self.browse_day)
+        self.timeline_preview_timer = QTimer(self)
+        self.timeline_preview_timer.setSingleShot(True)
+        self.timeline_preview_timer.setInterval(90)
+        self.timeline_preview_timer.timeout.connect(self.apply_timeline_preview)
+        self.pending_timeline_date = None
+        self.timeline.dateSelected.connect(self.commit_timeline_day)
+        self.timeline.datePreviewed.connect(self.preview_timeline_day)
         row.addWidget(self.timeline, 1)
         self.date_scope_button = self.button('当前日期', self.toggle_date_scope)
         row.addWidget(self.date_scope_button)
@@ -269,6 +287,16 @@ class MainWindow(QMainWindow):
         right.addWidget(label('标签'))
         self.tags = TagPicker()
         right.addWidget(self.tags)
+        people_row = QHBoxLayout()
+        self.people_button = self.button('人物标签', self.pick_people)
+        people_row.addWidget(self.people_button, 1)
+        self.people_expand = QToolButton()
+        self.people_expand.setArrowType(Qt.ArrowType.RightArrow)
+        self.people_expand.setCheckable(True)
+        self.people_expand.setAccessibleName('展开人物代号快捷插入')
+        self.people_expand.toggled.connect(self.toggle_people_shortcuts)
+        people_row.addWidget(self.people_expand)
+        right.addLayout(people_row)
         self.timestamps = label('尚未选择文章')
         self.timestamps.setTextFormat(Qt.TextFormat.PlainText)
         right.addWidget(self.timestamps)
@@ -338,10 +366,9 @@ class MainWindow(QMainWindow):
         right.addWidget(self.attachment_button)
         right.addWidget(label('文集工具', 'section'))
         right.addWidget(self.button('导出备份', self.backup))
-        export = QPushButton('EPUB 导出 · 待接入')
-        export.setEnabled(False)
-        export.setToolTip('已预留章节选择和导出接口，当前版本尚未实现 EPUB 生成。')
-        right.addWidget(export)
+        right.addWidget(self.button('导出 EPUB', self.export_epub))
+        right.addWidget(self.button('导入 NorthDiary EPUB', self.import_epub))
+        right.addWidget(self.button('GitHub 上传与下载', self.open_github))
         right.addWidget(label('备份恢复界面将在后续版本接入。'))
         self.delete_button = self.button('移入回收站', self.delete_or_restore)
         right.addWidget(self.delete_button)
@@ -351,7 +378,18 @@ class MainWindow(QMainWindow):
         property_scroll.setWidget(properties)
         property_scroll.setMinimumWidth(240)
         self.splitter.addWidget(property_scroll)
-        self.splitter.setSizes([245, 690, 255])
+        self.people_shortcuts = QScrollArea()
+        self.people_shortcuts.setWidgetResizable(True)
+        self.people_shortcuts.setMinimumWidth(230)
+        self.people_shortcuts.setMaximumWidth(380)
+        self.shortcut_body = QWidget()
+        from PySide6.QtWidgets import QGridLayout
+        self.shortcut_grid = QGridLayout(self.shortcut_body)
+        self.shortcut_grid.setAlignment(Qt.AlignmentFlag.AlignTop)
+        self.people_shortcuts.setWidget(self.shortcut_body)
+        self.splitter.addWidget(self.people_shortcuts)
+        self.people_shortcuts.hide()
+        self.splitter.setSizes([245, 690, 255, 0])
         self.statusBar().showMessage('数据目录：' + str(self.database.root))
 
         for signal in (self.title.textChanged, self.date.dateChanged,
@@ -479,7 +517,7 @@ class MainWindow(QMainWindow):
             split = lambda text: text.replace('，', ',').split(',')
             self.repository.save(self.current_id, self.title.text(), self.date.text(),
                                  self.editor.toHtml(), self.editor.toPlainText(),
-                                 split(self.categories.text()), self.tags.normal_names, self.tags.temporary_names)
+                                 split(self.categories.text()), self.tags.normal_names, self.tags.temporary_names, self.person_ids)
         except Exception as error:
             self.statusBar().showMessage('保存失败 · 内容仍保留，请重试：' + str(error))
             if notify:
@@ -622,6 +660,7 @@ class MainWindow(QMainWindow):
         if not self.save(True): return
         options=[(self.sort_combo.itemText(i),self.sort_combo.itemData(i)) for i in range(self.sort_combo.count())]
         dialog=OverviewDialog(self.repository,options,self.sort_key,self)
+        dialog.deleteRequested.connect(self.trash_article)
         dialog.sortingChanged.connect(lambda key: self.sort_combo.setCurrentIndex(self.sort_combo.findData(key)))
         dialog.exec()
         if dialog.article_id:
@@ -652,6 +691,23 @@ class MainWindow(QMainWindow):
             self.browse_date = self.date.date().toString('yyyy-MM-dd')
         self.refresh_list()
 
+    def preview_timeline_day(self, date):
+        self.pending_timeline_date = QDate(date)
+        # Throttle rather than debounce: a long drag still previews periodically.
+        if not self.timeline_preview_timer.isActive():
+            self.timeline_preview_timer.start()
+
+    def apply_timeline_preview(self):
+        date = self.pending_timeline_date
+        self.pending_timeline_date = None
+        if date is not None:
+            self.browse_day(date)
+
+    def commit_timeline_day(self, date):
+        self.timeline_preview_timer.stop()
+        self.pending_timeline_date = None
+        self.browse_day(date)
+
     def browse_day(self, date):
         if not self.save(True):
             self.timeline.setDate(QDate.fromString(self.browse_date, 'yyyy-MM-dd') if self.browse_date else self.date.date())
@@ -659,16 +715,37 @@ class MainWindow(QMainWindow):
         self.browse_date = date.toString('yyyy-MM-dd')
         if not self.timeline.pressed:
             self.timeline.setDate(date)
-        self.article_mode.blockSignals(True)
-        self.article_mode.setCurrentIndex(self.article_mode.findData('date'))
-        self.list_mode = 'date'
-        self.article_mode.blockSignals(False)
-        self.load_article(None)
-        self.refresh_list()
-        if self.article_list.count():
-            self.article_list.setCurrentRow(0)
-        else:
-            self.statusBar().showMessage(self.browse_date + ' 没有文章，可新建记录。', 5000)
+        repaint = self.updatesEnabled()
+        self.setUpdatesEnabled(False)
+        try:
+            self.article_mode.blockSignals(True)
+            self.article_mode.setCurrentIndex(self.article_mode.findData('date'))
+            self.list_mode = 'date'
+            self.article_mode.blockSignals(False)
+            # Choose the destination before changing the editor: no blank frame.
+            self.refresh_list()
+            item = self.article_list.item(0)
+            target = item.data(Qt.ItemDataRole.UserRole) if item else None
+            if target != self.current_id:
+                self.load_article(target)
+            elif target is None:
+                # Consecutive empty dates need only date/background updates.
+                previous_loading = self.loading
+                self.loading = True
+                try:
+                    self.date.setDate(date)
+                    self.update_date_background()
+                finally:
+                    self.loading = previous_loading
+            self.article_list.blockSignals(True)
+            try:
+                self.article_list.setCurrentRow(0 if item else -1)
+            finally:
+                self.article_list.blockSignals(False)
+            if item is None:
+                self.statusBar().showMessage(self.browse_date + ' 没有文章，可新建记录。', 5000)
+        finally:
+            self.setUpdatesEnabled(repaint)
 
     def clear_day(self):
         if self.save(True):
@@ -761,6 +838,9 @@ class MainWindow(QMainWindow):
         self.categories.setText('，'.join(self.repository.labels(article_id, 'categories')) if article else '')
         self.tags.set_values(self.repository.labels(article_id, 'tags') if article else [],
                              self.repository.temporary_tags(article_id) if article else [])
+        from northdiary.storage.people import PeopleRepository
+        self.person_ids = [p['id'] for p in PeopleRepository(self.database).for_article(article_id)] if article else []
+        self.refresh_people()
         self.word_count.setText(f'{len(self.editor.toPlainText())} 字符')
         self.preview.setChecked(self.trash or reading)
         self.toggle_preview()
@@ -807,13 +887,14 @@ class MainWindow(QMainWindow):
         editable = bool(self.current_id) and not self.trash and not self.preview.isChecked()
         self.editor.setReadOnly(not editable)
         for widget in (self.title, self.date, self.categories, self.tags, self.bold,
-                       self.italic, self.indent_button, self.image_button, self.attachment_button,
+                       self.italic, self.indent_button, self.image_button, self.attachment_button, self.people_button,
                        self.caption_button, self.remove_link_button, self.place_link_button):
             widget.setEnabled(editable)
         self.date.setEnabled(not self.trash and not self.preview.isChecked())
         self.preview.setEnabled(bool(self.current_id) and not self.trash)
         self.preview.setText('返回编辑' if self.preview.isChecked() else '阅读模式')
         self.set_reading_layout(self.preview.isChecked() and not self.trash)
+        self.shortcut_body.setEnabled(editable)
         self.update_image_actions()
 
     def set_reading_layout(self, reading):
@@ -1006,10 +1087,141 @@ class MainWindow(QMainWindow):
             except Exception as error:
                 self.fail(error)
 
+    def export_epub(self):
+        if not self.save(True):
+            return
+        dialog = ExportDialog(self.repository.list(), self)
+        if dialog.exec() != dialog.DialogCode.Accepted:
+            return
+        path, _ = QFileDialog.getSaveFileName(self, '导出 EPUB', 'NorthDiary.epub', 'EPUB 电子书 (*.epub)')
+        if not path:
+            return
+        try:
+            EpubExporter(self.repository, self.attachments).export(dialog.selection(), Path(path))
+            QMessageBox.information(self, 'EPUB 已导出', '已按所选顺序生成章节、目录和正文图片。')
+        except Exception as error:
+            self.fail(error)
+
+    def import_epub(self):
+        if not self.save(True):
+            return
+        path, _ = QFileDialog.getOpenFileName(self, '导入 NorthDiary EPUB', '', 'NorthDiary EPUB (*.epub)')
+        if not path:
+            return
+        try:
+            importer = EpubImporter(self.repository, self.attachments)
+            preview = importer.prepare(Path(path))
+            if preview.new_count + preview.conflict_count:
+                message = (f'新增 {preview.new_count} 篇，冲突副本 {preview.conflict_count} 篇，'
+                           f'跳过已存在内容 {preview.skipped_count} 篇。\n'
+                           '现有文章不会被覆盖；正文图片会复制到本机。继续导入？')
+                if QMessageBox.question(self, '确认导入', message,
+                                        QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+                                        QMessageBox.StandardButton.No) != QMessageBox.StandardButton.Yes:
+                    return
+            result = importer.apply(preview)
+            self.refresh_categories()
+            self.refresh_people()
+            self.refresh_list()
+            if result.article_ids and not self.current_id:
+                self.load_article(result.article_ids[0])
+                self.refresh_list()
+            QMessageBox.information(self, '导入完成',
+                                    f'已导入 {result.imported} 篇（含冲突副本 {result.conflicts} 篇），'
+                                    f'跳过 {result.skipped} 篇。可在“文章总览”中查看。')
+        except Exception as error:
+            self.fail(error)
+
+    def open_github(self):
+        if not self.save(True):
+            return
+        from northdiary.ui.github_dialog import GitHubDialog
+        GitHubDialog(self).exec()
+
+    def refresh_people(self):
+        from northdiary.storage.people import PeopleRepository
+        people = PeopleRepository(self.database).list()
+        keys = {p['id'] for p in people}
+        self.person_ids = [key for key in self.person_ids if key in keys]
+        self.people_button.setText(f'人物标签 · {len(self.person_ids)}')
+        self.people_button.setToolTip('、'.join(p['name'] + '（' + p['code'] + '）' for p in people if p['id'] in self.person_ids) or '选择文章关联的人物')
+        while self.shortcut_grid.count():
+            item = self.shortcut_grid.takeAt(0)
+            if item.widget():
+                item.widget().hide()
+                item.widget().deleteLater()
+        for i, person in enumerate(people):
+            button = QPushButton(person['name'] + '\n' + person['code'])
+            button.setToolTip(person['name'] + '\n在光标处插入代号：' + person['code'])
+            button.setMaximumWidth(155)
+            button.setMinimumWidth(90)
+            button.clicked.connect(lambda checked=False, code=person['code']: self.insert_person_code(code))
+            self.shortcut_grid.addWidget(button, i//2, i%2)
+        if not people:
+            self.shortcut_grid.addWidget(label('暂无人物，请先在左侧人物档案中新建。'), 0, 0, 1, 2)
+
+    def toggle_people_shortcuts(self, expanded):
+        self.people_expand.setArrowType(Qt.ArrowType.LeftArrow if expanded else Qt.ArrowType.RightArrow)
+        self.people_shortcuts.setVisible(expanded)
+        if expanded:
+            self.refresh_people()
+            sizes = self.splitter.sizes()
+            if sizes[-1] < 100:
+                self.splitter.setSizes([max(160, sizes[0]), max(300, sizes[1]-230), max(220, sizes[2]), 230])
+
+    def insert_person_code(self, code):
+        if not self.current_id or self.editor.isReadOnly(): return
+        self.editor.insertPlainText(code)
+        self.editor.setFocus()
+
+    def open_people(self):
+        if not self.save(True): return
+        from northdiary.ui.people_dialog import PeopleDialog
+        dialog = PeopleDialog(self.database, self, attachments=self.attachments)
+        dialog.exec()
+        dialog.deleteLater()
+        self.refresh_people()
+
+    def pick_people(self):
+        if not self.current_id or self.editor.isReadOnly() or not self.save(True): return
+        from northdiary.ui.people_dialog import PeopleDialog
+        dialog = PeopleDialog(self.database, self, selected=self.person_ids, attachments=self.attachments)
+        if dialog.exec() == dialog.DialogCode.Accepted:
+            self.person_ids = list(dialog.selected)
+            self.mark_dirty()
+            self.refresh_people()
+            self.save(True)
+        else:
+            self.refresh_people()
+        dialog.deleteLater()
+
+    def remember_header_state(self, collapsed):
+        self.ui_settings.setValue('header_collapsed', collapsed)
+        self.ui_settings.sync()
+
+    def open_timeline_overview(self):
+        if not self.save(True):
+            return
+        from northdiary.ui.timeline_overview import TimelineOverview
+        dialog = TimelineOverview(self.repository, self.attachments, self)
+        dialog.setAttribute(Qt.WidgetAttribute.WA_DeleteOnClose)
+        dialog.exec()
+
+    def open_random_memory(self):
+        if not self.save(True):
+            return
+        from northdiary.ui.memory_dialog import MemoryDialog
+        dialog = MemoryDialog(self.repository, self.attachments, self)
+        dialog.setAttribute(Qt.WidgetAttribute.WA_DeleteOnClose)
+        dialog.exec()
+
     def closeEvent(self, event):
         if self.save(True):
+            self.timeline_preview_timer.stop()
+            self.pending_timeline_date = None
             event.accept()
         else:
             event.ignore()
+
 
 

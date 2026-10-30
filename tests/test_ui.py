@@ -38,7 +38,12 @@ class WindowTests(unittest.TestCase):
         first = self.window.current_id
         self.window.title.setText('第一篇')
         self.window.editor.setPlainText('这是一段日记')
-        QTest.qWait(1100)
+        # Wait for the timer event within a bound; a fixed 1.1 s wait is flaky
+        # when the full offscreen suite has pending layout/paint events.
+        for _ in range(30):
+            if not self.window.dirty:
+                break
+            QTest.qWait(100)
         self.assertFalse(self.window.dirty)
         self.assertEqual(self.window.repository.get(first).body_text, '这是一段日记')
         self.window.editor.insertPlainText('追加')
@@ -573,3 +578,4 @@ class WindowTests(unittest.TestCase):
 
 if __name__ == '__main__':
     unittest.main()
+

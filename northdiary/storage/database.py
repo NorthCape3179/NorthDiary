@@ -3,7 +3,7 @@ from contextlib import closing
 from uuid import uuid4
 from pathlib import Path
 
-SCHEMA_VERSION = 3
+SCHEMA_VERSION = 5
 SCHEMA = '''
 BEGIN IMMEDIATE;
 CREATE TABLE articles (
@@ -88,8 +88,61 @@ class Database:
                 self.connection.rollback()
                 self.connection.close()
                 raise
+        if version < 4:
+            try:
+                if version == 3:
+                    backups = self.root / 'backups'
+                    backups.mkdir(exist_ok=True)
+                    with closing(sqlite3.connect(backups / f'before-v4-{uuid4().hex}.sqlite3')) as snapshot:
+                        self.connection.backup(snapshot)
+                self.connection.executescript('''BEGIN IMMEDIATE;
+                    CREATE TABLE people (
+                        id TEXT PRIMARY KEY, name TEXT NOT NULL, code TEXT NOT NULL UNIQUE,
+                        birth_date TEXT NOT NULL DEFAULT '', met_date TEXT NOT NULL DEFAULT '',
+                        met_how TEXT NOT NULL DEFAULT '', pinned INTEGER NOT NULL DEFAULT 0,
+                        starred INTEGER NOT NULL DEFAULT 0
+                    );
+                    CREATE TABLE article_people (
+                        article_id TEXT NOT NULL REFERENCES articles(id) ON DELETE CASCADE,
+                        person_id TEXT NOT NULL REFERENCES people(id) ON DELETE CASCADE,
+                        PRIMARY KEY(article_id, person_id)
+                    );
+                    CREATE INDEX people_articles ON article_people(person_id, article_id);
+                    PRAGMA user_version=4;
+                    COMMIT;''')
+            except Exception:
+                self.connection.rollback()
+                self.connection.close()
+                raise
+        if version < 5:
+            try:
+                if version == 4:
+                    backups = self.root / 'backups'
+                    backups.mkdir(exist_ok=True)
+                    with closing(sqlite3.connect(backups / f'before-v5-{uuid4().hex}.sqlite3')) as snapshot:
+                        self.connection.backup(snapshot)
+                self.connection.executescript('''BEGIN IMMEDIATE;
+                    CREATE TABLE relationship_tags (
+                        name TEXT PRIMARY KEY
+                    );
+                    CREATE TABLE person_relationship_tags (
+                        person_id TEXT NOT NULL REFERENCES people(id) ON DELETE CASCADE,
+                        name TEXT NOT NULL REFERENCES relationship_tags(name),
+                        PRIMARY KEY(person_id, name)
+                    );
+                    CREATE TABLE person_temporary_relationship_tags (
+                        person_id TEXT NOT NULL REFERENCES people(id) ON DELETE CASCADE,
+                        name TEXT NOT NULL, PRIMARY KEY(person_id, name)
+                    );
+                    PRAGMA user_version=5;
+                    COMMIT;''')
+            except Exception:
+                self.connection.rollback()
+                self.connection.close()
+                raise
         self.connection.execute('PRAGMA journal_mode=WAL')
         self.connection.execute('PRAGMA synchronous=FULL')
 
     def close(self):
         self.connection.close()
+
