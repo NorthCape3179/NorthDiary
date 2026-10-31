@@ -169,6 +169,7 @@ class PeopleDialog(QDialog):
         self.attachments = attachments
         self.picker = selected is not None
         self.selected = list(dict.fromkeys(selected or []))
+        self.initial_selected = frozenset(self.selected)
         self.cards = {}
         self.current_person = None
         self.setWindowTitle('选择人物标签' if self.picker else '人物档案')
@@ -221,6 +222,9 @@ class PeopleDialog(QDialog):
 
     def refresh(self, *_):
         people = self.repository.list(self.search.text())
+        if self.picker:
+            # Stable partition on open: keep cards still while choosing people.
+            people.sort(key=lambda person: person["id"] not in self.initial_selected)
         existing = {p['id']: p for p in self.repository.list()}
         self.selected = [key for key in self.selected if key in existing]
         self.clear_layout(self.grid); self.cards = {}

@@ -9,7 +9,9 @@ class OverviewDialog(QDialog):
 
     def __init__(self, repository, options, current_sort, parent=None):
         super().__init__(parent)
-        self.repository = repository
+        from northdiary.storage.repository import ArticleRepository
+        self.repository = ArticleRepository(repository.database)
+        self.repository.outside = repository.outside
         self.article_id = None
         self.setWindowTitle('文章总览'); self.resize(900, 580)
         self.setMinimumSize(650, 420)
@@ -27,6 +29,9 @@ class OverviewDialog(QDialog):
         for name in repository.categories(): self.category_combo.addItem(name, name)
         self.category_combo.hide()
         self.sort.setCurrentIndex(max(0, self.sort.findData(current_sort)))
+        self.space_button = QPushButton('时间线之内' if self.repository.outside else '时间线之外')
+        self.space_button.clicked.connect(self.toggle_space)
+        row.addWidget(self.space_button)
         row.addWidget(self.search, 1); row.addWidget(self.category_combo); row.addWidget(self.sort)
         layout.addLayout(row)
         self.count_label = QLabel(); layout.addWidget(self.count_label)
@@ -49,6 +54,11 @@ class OverviewDialog(QDialog):
         self.search.textChanged.connect(self.refresh)
         self.category_combo.currentIndexChanged.connect(self.refresh)
         self.sort.currentIndexChanged.connect(self.change_sort)
+        self.refresh()
+
+    def toggle_space(self):
+        self.repository.outside = not self.repository.outside
+        self.space_button.setText('时间线之内' if self.repository.outside else '时间线之外')
         self.refresh()
 
     def refresh(self):
@@ -78,7 +88,9 @@ class OverviewDialog(QDialog):
                 item.setData(Qt.ItemDataRole.UserRole,article.id)
                 self.table.setItem(i,column,item)
         scope = self.category_combo.currentText() if category_mode else '全部文章'
-        self.count_label.setText(f'{scope} · {len(rows)} 篇（双击打开，右键删除）')
+        space = '时间线之外' if self.repository.outside else '时间线之内'
+        self.count_label.setText(f'{space} · {scope} · {len(rows)} 篇（双击打开，右键删除）')
+        self.table.setColumnHidden(2, self.repository.outside)
         if rows: self.table.selectRow(selected_row)
 
     def show_article_menu(self, point):

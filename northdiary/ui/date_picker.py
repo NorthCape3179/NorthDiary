@@ -106,20 +106,33 @@ class DateDialog(QDialog):
         self.input.returnPressed.connect(self.accept_input)
         layout.addWidget(self.input)
         row = QHBoxLayout()
-        previous = QToolButton(); previous.setText('‹'); previous.setFixedSize(26, 26)
-        previous.setToolTip('上个月'); previous.clicked.connect(lambda: self.move_month(-1))
-        following = QToolButton(); following.setText('›'); following.setFixedSize(26, 26)
-        following.setToolTip('下个月'); following.clicked.connect(lambda: self.move_month(1))
+        row.setSpacing(2)
+        def triangle(title, count, years=False):
+            button = QToolButton()
+            button.setArrowType(Qt.ArrowType.LeftArrow if count < 0 else Qt.ArrowType.RightArrow)
+            button.setFixedSize(22, 28)
+            button.setAccessibleName(title); button.setToolTip(title + '（长按连续切换）')
+            button.setAutoRepeat(True); button.setAutoRepeatDelay(300); button.setAutoRepeatInterval(90)
+            button.clicked.connect(lambda: self.move_year(count) if years else self.move_month(count))
+            return button
+        self.year_previous = triangle('上一年', -1, True)
+        self.year_following = triangle('下一年', 1, True)
+        self.month_previous = triangle('上个月', -1)
+        self.month_following = triangle('下个月', 1)
         self.year = QSpinBox(); self.year.setRange(1753, 9999); self.year.setSuffix(' 年')
-        self.year.setButtonSymbols(QAbstractSpinBox.ButtonSymbols.NoButtons); self.year.setFixedWidth(88)
+        self.year.setButtonSymbols(QAbstractSpinBox.ButtonSymbols.NoButtons); self.year.setFixedWidth(82)
+        self.year.setToolTip('可直接输入年份，也可用左右三角切换')
         self.month = ComboBox()
         for month in range(1, 13): self.month.addItem(f'{month} 月', month)
-        self.month.setFixedWidth(72); self.month.setFixedHeight(28)
-        self.month.setStyleSheet('QComboBox { padding: 2px 20px 2px 6px; }')
-        row.addWidget(previous); row.addStretch(); row.addWidget(self.year); row.addWidget(self.month); row.addStretch(); row.addWidget(following)
+        if allow_partial: self.month.addItem('未知', None)
+        self.month.setFixedWidth(68); self.month.setFixedHeight(28)
+        self.month.setStyleSheet('QComboBox { padding: 2px 16px 2px 4px; }')
+        row.addWidget(self.year_previous); row.addWidget(self.year); row.addWidget(self.year_following)
+        row.addStretch()
+        row.addWidget(self.month_previous); row.addWidget(self.month); row.addWidget(self.month_following)
         layout.addLayout(row)
-        self.unknown_month = QPushButton('月未知')
-        self.unknown_day = QPushButton('日未知')
+        self.unknown_month = QPushButton('月份未知')
+        self.unknown_day = QPushButton('日期未知')
         unknown_row = QHBoxLayout()
         for button, precision_key in ((self.unknown_month, 'year'), (self.unknown_day, 'month')):
             button.setCheckable(True)
@@ -164,8 +177,13 @@ class DateDialog(QDialog):
         self.unknown_month.setChecked(self.precision == 'year')
         self.unknown_day.setChecked(self.precision in ('year', 'month'))
         self.year.blockSignals(True); self.month.blockSignals(True)
-        self.year.setValue(self.shown.year()); self.month.setCurrentIndex(self.shown.month()-1)
+        self.year.setValue(self.shown.year())
+        self.month.setCurrentIndex(self.month.findData(None) if self.allow_partial and self.precision == 'year' else self.month.findData(self.shown.month()))
         self.year.blockSignals(False); self.month.blockSignals(False)
+        self.year_previous.setEnabled(self.shown.year() > 1753)
+        self.year_following.setEnabled(self.shown.year() < 9999)
+        self.month_previous.setEnabled(self.shown > QDate(1753, 1, 1))
+        self.month_following.setEnabled(self.shown < QDate(9999, 12, 1))
         start = self.shown.addDays(1-self.shown.dayOfWeek())
         for index, button in enumerate(self.days):
             date = start.addDays(index)
@@ -179,18 +197,32 @@ class DateDialog(QDialog):
             button.setProperty('outside', date.month() != self.shown.month())
             button.setProperty('today', date == QDate.currentDate())
             button.setChecked(self.precision == 'day' and date == self.selected)
-            button.setEnabled(1753 <= date.year() <= 9999)
+            button.setEnabled(1753 <= date.year() <= 9999 and self.precision != 'year')
             button.style().unpolish(button); button.style().polish(button)
 
-    def move_month(self, count):
-        date = self.shown.addMonths(count)
+    def move_year(self, count):
+        date = self.shown.addYears(count)
         if 1753 <= date.year() <= 9999:
             self.shown = date
             if self.precision != 'day': self.choose_unknown(self.precision)
             self.render_days()
 
+    def move_month(self, count):
+        date = self.shown.addMonths(count)
+        if 1753 <= date.year() <= 9999:
+            self.shown = date
+            if self.allow_partial and self.precision == 'year': self.precision = 'month'
+            if self.precision != 'day': self.choose_unknown(self.precision)
+            self.render_days()
+
     def change_page(self):
-        self.shown = QDate(self.year.value(), self.month.currentData(), 1)
+        month = self.month.currentData()
+        if month is None and self.allow_partial:
+            self.shown = QDate(self.year.value(), self.shown.month(), 1)
+            self.choose_unknown('year')
+            return
+        self.shown = QDate(self.year.value(), month, 1)
+        if self.precision == 'year': self.precision = 'month'
         if self.precision != 'day': self.choose_unknown(self.precision)
         self.render_days()
 

@@ -22,7 +22,7 @@ from northdiary.ui.tag_picker import TagPicker
 from northdiary.ui.article_list import ArticleList
 from northdiary.ui.controls import ComboBox as QComboBox, ButtonFeedback, FloatingPanel
 from northdiary.ui.trash_dialog import TrashDialog
-from northdiary.ui.icons import pin_icon, landscape_icon
+from northdiary.ui.icons import pin_icon, landscape_icon, date_sort_icon
 from northdiary.ui.season_background import SeasonPaper
 from northdiary.ui.image_board import ImageBoard
 from northdiary.ui.category_picker import CategoryPicker
@@ -53,9 +53,12 @@ class MainWindow(QMainWindow):
         self.trash = False
         self.category = None
         self.tag = None
+        self.selected_categories = None
+        self.selected_tags = None
+        self.outside = False
         self.browse_date = None
         self.list_mode = 'all'
-        self.sort_key = 'created_desc'
+        self.sort_key = 'diary_desc'
         self.setWindowTitle(f'NorthDiary v{__version__} · 留下值得记住的日常')
         self.resize(1280, 820)
         self.setMinimumSize(1000, 640)
@@ -70,7 +73,11 @@ class MainWindow(QMainWindow):
         self.header_tools.set_collapsed(self.ui_settings.value('header_collapsed', False, type=bool), animate=False)
         self.header_tools.collapsedChanged.connect(self.remember_header_state)
         self.recent_ids = self.ui_settings.value('recent_articles', [], type=list)
-        saved_sort = self.ui_settings.value('article_sort', 'created_desc')
+        if not self.ui_settings.value('sidebar_date_default_v1', False, type=bool):
+            self.ui_settings.setValue('article_sort', 'diary_desc')
+            self.ui_settings.setValue('sidebar_date_default_v1', True)
+            self.ui_settings.sync()
+        saved_sort = self.ui_settings.value('article_sort', 'diary_desc')
         index = self.sort_combo.findData(saved_sort)
         self.sort_combo.blockSignals(True)
         self.sort_combo.setCurrentIndex(max(0, index))
@@ -79,6 +86,9 @@ class MainWindow(QMainWindow):
         self.set_theme(self.ui_settings.value('dark', False, type=bool), self.ui_settings.value('theme_name', ''))
         self.set_background(self.ui_settings.value('season_background', True, type=bool))
         self.refresh_categories()
+        self.outside = self.ui_settings.value('outside_timeline', False, type=bool)
+        self.repository.outside = self.outside
+        self.apply_space_ui()
         self.refresh_list()
         if self.article_list.count():
             self.article_list.setCurrentRow(0)
@@ -98,6 +108,8 @@ class MainWindow(QMainWindow):
         outer.setContentsMargins(20, 16, 20, 8)
         header = QHBoxLayout()
         header.addWidget(label('NorthDiary', 'brand'))
+        self.space_button = self.button('时间线之外', self.toggle_space, True)
+        header.addWidget(self.space_button)
         header.addStretch()
         self.header_tools = HeaderTools()
         self.theme_mode_button = self.button('切换深色', lambda: self.set_theme(not bool(self.property('darkTheme'))))
@@ -110,7 +122,7 @@ class MainWindow(QMainWindow):
         self.theme_combo.setToolTip('选择当前深浅模式下的配色')
         self.theme_combo.currentIndexChanged.connect(lambda _: self.choose_theme(self.theme_combo))
         self.header_tools.add_widget(self.theme_combo)
-        self.header_tools.add_widget(self.button('数据文件夹', lambda: QDesktopServices.openUrl(QUrl.fromLocalFile(str(self.database.root)))))
+        self.header_tools.add_widget(self.button('数据文件夹', self.manage_data_location))
         self.random_memory_button = self.button('随机回忆', self.open_random_memory)
         self.header_tools.add_widget(self.random_memory_button)
         self.header_tools.add_widget(self.button('保存  Ctrl+S', lambda: self.save(True)))
@@ -136,11 +148,22 @@ class MainWindow(QMainWindow):
         self.category_filter = QComboBox()
         self.category_filter.addItem('所有分类', None)
         self.category_filter.currentIndexChanged.connect(self.change_category)
-        left.addWidget(self.category_filter)
+        self.category_filter.setParent(sidebar)
+        self.category_filter.hide()
+        from northdiary.ui.definition_menu import bind_combo
+        bind_combo(self.category_filter, self, 'categories')
         self.tag_filter = QComboBox()
         self.tag_filter.addItem('所有标签', None)
         self.tag_filter.currentIndexChanged.connect(self.change_tag)
-        left.addWidget(self.tag_filter)
+        self.tag_filter.setParent(sidebar)
+        self.tag_filter.hide()
+        filter_row = QHBoxLayout()
+        self.category_filter_button = self.button('分类', lambda: self.choose_label_filter('categories'))
+        self.tag_filter_button = self.button('标签', lambda: self.choose_label_filter('tags'))
+        filter_row.addWidget(self.category_filter_button, 1)
+        filter_row.addWidget(self.tag_filter_button, 1)
+        left.addLayout(filter_row)
+        bind_combo(self.tag_filter, self, 'tags')
         self.list_count = label('0 篇文章')
         mode_row = QHBoxLayout()
         mode_row.addWidget(self.list_count, 1)
@@ -155,9 +178,16 @@ class MainWindow(QMainWindow):
         self.article_mode.setSizeAdjustPolicy(QComboBox.SizeAdjustPolicy.AdjustToMinimumContentsLengthWithIcon)
         self.article_mode.currentIndexChanged.connect(self.change_article_mode)
         mode_row.addWidget(self.article_mode)
+        self.date_sort_button = QToolButton()
+        self.date_sort_button.setObjectName('articleTool')
+        self.date_sort_button.setFixedSize(30, 30)
+        self.date_sort_button.setIconSize(QSize(24, 24))
+        self.date_sort_button.clicked.connect(self.toggle_date_sort)
+        mode_row.addWidget(self.date_sort_button)
         left.addLayout(mode_row)
         self.sort_combo = QComboBox()
-        for text, key in [('创建时间：最新优先', 'created_desc'), ('创建时间：最早优先', 'created_asc'),
+        for text, key in [('文章日期：最新优先', 'diary_desc'), ('文章日期：最早优先', 'diary_asc'),
+                          ('创建时间：最新优先', 'created_desc'), ('创建时间：最早优先', 'created_asc'),
                           ('修改时间：最新优先', 'updated_desc'), ('修改时间：最早优先', 'updated_asc'),
                           ('标题：升序', 'title'), ('手动排列', 'manual')]:
             self.sort_combo.addItem(text, key)
@@ -171,9 +201,29 @@ class MainWindow(QMainWindow):
         self.article_list.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
         self.article_list.customContextMenuRequested.connect(self.show_article_menu)
         left.addWidget(self.article_list, 1)
-        left.addWidget(self.button('时间线总览', self.open_timeline_overview))
+        self.article_list.draftConfirmRequested.connect(self.confirm_article)
+        self.draft_section = QWidget()
+        draft_layout = QVBoxLayout(self.draft_section)
+        draft_layout.setContentsMargins(0, 0, 0, 0)
+        draft_layout.setSpacing(2)
+        draft_divider = QFrame(); draft_divider.setFrameShape(QFrame.Shape.HLine)
+        draft_layout.addWidget(draft_divider)
+        self.draft_count = label('待确认 · 0'); draft_layout.addWidget(self.draft_count)
+        from northdiary.ui.draft_list import DraftList
+        self.draft_list = DraftList()
+        self.draft_list.currentItemChanged.connect(self.select_draft)
+        self.draft_list.confirmRequested.connect(self.confirm_article)
+        self.draft_list.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
+        self.draft_list.customContextMenuRequested.connect(self.show_draft_menu)
+        draft_layout.addWidget(self.draft_list)
+        left.addWidget(self.draft_section)
+        self.draft_section.hide()
+
+        self.timeline_overview_button = self.button('时间线总览', self.open_timeline_overview)
+        left.addWidget(self.timeline_overview_button)
         left.addWidget(self.button('文章总览', self.open_overview))
-        left.addWidget(self.button('人物档案', self.open_people))
+        self.people_archive_button = self.button('人物档案', self.open_people)
+        left.addWidget(self.people_archive_button)
         self.trash_button = self.button('回收站', self.open_trash)
         left.addWidget(self.trash_button)
         self.search.textChanged.connect(self.filter_search)
@@ -224,7 +274,8 @@ class MainWindow(QMainWindow):
         band_layout.addWidget(divider)
         center.addWidget(tool_band)
         row = QHBoxLayout()
-        row.addWidget(label('日期'))
+        self.date_label = label('日期')
+        row.addWidget(self.date_label)
         self.date = DateInput(QDate.currentDate())
         self.date.dateChanged.connect(self.update_date_background)
         self.date.dateChanged.connect(self.select_creation_date)
@@ -253,6 +304,9 @@ class MainWindow(QMainWindow):
         toolbar = QHBoxLayout()
         self.bold = self.button('加粗', self.toggle_bold)
         self.italic = self.button('斜体', self.toggle_italic)
+        self.center_button = self.button('居中', self.toggle_center)
+        self.center_button.setCheckable(True)
+        self.center_button.setToolTip('将当前或选中段落居中，再次点击恢复左对齐')
         self.indent_button = self.button('自动缩进', self.editor_indent)
         self.indent_button.setToolTip('将全文各段首行缩进两个汉字，重复点击不叠加')
         self.bold.setCheckable(True)
@@ -260,6 +314,7 @@ class MainWindow(QMainWindow):
         self.image_button = self.button('插入图片', self.insert_image)
         toolbar.addWidget(self.bold)
         toolbar.addWidget(self.italic)
+        toolbar.addWidget(self.center_button)
         toolbar.addWidget(self.indent_button)
         toolbar.addWidget(self.image_button)
         toolbar.addStretch()
@@ -367,11 +422,16 @@ class MainWindow(QMainWindow):
         self.attachment_button = self.button('＋  添加附件', self.add_attachment)
         right.addWidget(self.attachment_button)
         right.addWidget(label('文集工具', 'section'))
-        right.addWidget(self.button('导出备份', self.backup))
-        right.addWidget(self.button('导出 EPUB', self.export_epub))
-        right.addWidget(self.button('导入 NorthDiary EPUB', self.import_epub))
-        right.addWidget(self.button('GitHub 上传与下载', self.open_github))
-        right.addWidget(label('备份恢复界面将在后续版本接入。'))
+        from northdiary.ui.controls import MenuButton
+        self.export_button = MenuButton('导出')
+        export_menu = QMenu(self.export_button)
+        export_menu.addAction('导出备份', self.backup)
+        export_menu.addAction('导出 EPUB', self.export_epub)
+        export_menu.addAction('导入 NorthDiary EPUB', self.import_epub)
+        export_menu.addAction('GitHub 上传与下载', self.open_github)
+        self.export_button.setMenu(export_menu)
+        self.export_button.open_upwards = True
+        right.addWidget(self.export_button)
         self.delete_button = self.button('移入回收站', self.delete_or_restore)
         right.addWidget(self.delete_button)
         property_scroll = QScrollArea()
@@ -398,6 +458,7 @@ class MainWindow(QMainWindow):
                        self.editor.textChanged, self.categories.changed, self.tags.changed):
             signal.connect(self.mark_dirty)
         self.editor.currentCharFormatChanged.connect(self.sync_format_buttons)
+        self.editor.cursorPositionChanged.connect(self.sync_alignment_button)
         save_action = QAction('保存', self)
         save_action.setShortcut(QKeySequence.StandardKey.Save)
         save_action.triggered.connect(lambda: self.save(True))
@@ -538,15 +599,65 @@ class MainWindow(QMainWindow):
         self.refresh_categories()
         QTimer.singleShot(0, self.refresh_list)
         # Avoid a list rebuild while typing, preserving selection and focus.
-        for index in range(self.article_list.count()):
-            item = self.article_list.item(index)
-            if item.data(Qt.ItemDataRole.UserRole) == self.current_id:
-                item.setText(self.item_text(self.repository.get(self.current_id)))
+        for listing in (self.article_list, self.draft_list):
+            for index in range(listing.count()):
+                item = listing.item(index)
+                if item.data(Qt.ItemDataRole.UserRole) == self.current_id:
+                    text = self.item_text(self.repository.get(self.current_id))
+                    item.setText(text)
+                    row = listing.itemWidget(item)
+                    if row is not None: row.label.setText(text)
         self.update_properties()
         return True
 
     def item_text(self, article):
-        return f'{article.title}\n{article.diary_date}  ·  {len(article.body_text)} 字符'
+        shown_date = '时间线之外' if self.repository.is_outside(article.id) else article.diary_date
+        return f'{article.title}\n{shown_date}  ·  {len(article.body_text)} 字符'
+
+    def refresh_drafts(self):
+        rows = self.repository.list(all_spaces=True, drafts_only=True, sort='created_asc', pinned_first=False)
+        self.draft_list.blockSignals(True)
+        try:
+            keys = [article.id for article in rows]
+            if keys != self.draft_list.ids():
+                self.draft_list.clear()
+                for article in rows:
+                    self.draft_list.add_article(article.id, self.item_text(article))
+            else:
+                for index, article in enumerate(rows):
+                    item = self.draft_list.item(index); text = self.item_text(article)
+                    item.setText(text); self.draft_list.itemWidget(item).label.setText(text)
+            self.draft_list.setCurrentRow(keys.index(self.current_id) if self.current_id in keys else -1)
+            self.draft_count.setText(f'待确认 · {len(rows)}')
+            self.draft_section.setVisible(bool(rows))
+        finally:
+            self.draft_list.blockSignals(False)
+
+    def confirm_article(self, article_id):
+        if not article_id or not self.repository.is_draft(article_id): return False
+        if not self.save(True): return False
+        try:
+            self.repository.confirm_draft(article_id)
+        except Exception as error:
+            self.fail(error); return False
+        self.refresh_list()
+        return True
+
+    def select_draft(self, item, previous):
+        if item is None: return
+        if not self.save(True):
+            self.draft_list.blockSignals(True)
+            self.draft_list.setCurrentItem(previous)
+            self.draft_list.blockSignals(False)
+            return
+        self.article_list.blockSignals(True); self.article_list.setCurrentRow(-1); self.article_list.blockSignals(False)
+        self.load_article(item.data(Qt.ItemDataRole.UserRole))
+
+    def show_draft_menu(self, point):
+        item = self.draft_list.itemAt(point)
+        if item:
+            menu = self.make_article_menu(item.data(Qt.ItemDataRole.UserRole))
+            menu.exec(self.draft_list.viewport().mapToGlobal(point)); menu.deleteLater()
 
     def show_article_menu(self, point):
         item = self.article_list.itemAt(point)
@@ -558,12 +669,28 @@ class MainWindow(QMainWindow):
     def make_article_menu(self, article_id):
         article = self.repository.get(article_id)
         menu = QMenu(self)
+        if self.repository.is_draft(article_id):
+            menu.addAction('确认加入文章栏', lambda: self.confirm_article(article_id))
         menu.addAction('取消置顶' if article.pinned else '置顶', lambda: self.pin_article(article_id))
+        menu.addAction('移到时间线之内' if self.repository.is_outside(article_id) else '移到时间线之外', lambda: self.move_article_space(article_id))
         menu.addAction('删除', lambda: self.trash_article(article_id))
         if self.article_mode.currentData() == 'recent':
             menu.addSeparator()
             menu.addAction('移出最近打开', lambda: self.remove_recent(article_id))
         return menu
+
+    def move_article_space(self, article_id):
+        if not self.save(True): return
+        try:
+            with self.repository.db:
+                if self.repository.is_outside(article_id):
+                    self.repository.db.execute('DELETE FROM outside_articles WHERE article_id=?', (article_id,))
+                else:
+                    self.repository.db.execute('INSERT INTO outside_articles VALUES (?)', (article_id,))
+            if article_id == self.current_id: self.load_article(None)
+            self.refresh_list()
+        except Exception as error:
+            self.fail(error)
 
     def pin_article(self, article_id):
         if not self.save(True):
@@ -631,7 +758,9 @@ class MainWindow(QMainWindow):
     def refresh_list(self):
         self.article_list.blockSignals(True)
         self.article_list.clear()
-        rows = self.repository.list(self.search.text(), self.category, self.trash, tag=self.tag, sort=self.sort_key)
+        rows = self.repository.list(self.search.text(), self.category, self.trash, tag=self.tag, sort=self.sort_key, all_spaces=True)
+        from northdiary.ui.label_filter_dialog import filter_articles
+        rows = filter_articles(self.repository, rows, self.selected_categories, self.selected_tags)
         recent = self.article_mode.currentData() == 'recent'
         if recent:
             positions = {key: i for i, key in enumerate(self.recent_ids)}
@@ -640,7 +769,7 @@ class MainWindow(QMainWindow):
             normal = sorted((article for article in rows if not article.pinned), key=lambda article: positions[article.id])
             rows = pinned + normal
         elif self.article_mode.currentData() == 'date' and self.browse_date:
-            rows = [article for article in rows if matches_day(article.diary_date, self.browse_date)]
+            rows = [article for article in rows if not self.repository.is_outside(article.id) and matches_day(article.diary_date, self.browse_date)]
         for article in rows:
             item = QListWidgetItem(self.item_text(article))
             item.setData(Qt.ItemDataRole.UserRole, article.id)
@@ -654,8 +783,10 @@ class MainWindow(QMainWindow):
         date_label = self.browse_date if self.article_mode.currentData() == 'date' else '全部文章'
         self.list_count.setText(f'{"最近" if recent else date_label}\n{len(rows)} 篇文章')
         self.sort_combo.setEnabled(not recent)
+        self.update_date_sort_button()
         self.article_list.sorting_allowed = not recent and self.sort_key == 'manual'
-        self.article_list.setToolTip('选择“手动排列”可上下拖动；最近打开模式按打开时间排序')
+        self.article_list.setToolTip('可把下方待确认文章拖到这里；手动排序时可上下调整文章')
+        self.refresh_drafts()
         self.date_scope_button.setText('全部日期' if self.article_mode.currentData() == 'date' else '当前日期')
         self.date_scope_button.setToolTip('切换到全部日期' if self.article_mode.currentData() == 'date' else '切换到当前文章日期')
 
@@ -664,6 +795,67 @@ class MainWindow(QMainWindow):
             self.clear_day()
         else:
             self.browse_day(self.date.date())
+
+    def choose_label_filter(self, kind):
+        if not self.save(True): return
+        from northdiary.ui.label_filter_dialog import LabelFilterDialog
+        attribute = 'selected_categories' if kind == 'categories' else 'selected_tags'
+        dialog = LabelFilterDialog(self, kind, getattr(self, attribute))
+        if dialog.exec() == dialog.DialogCode.Accepted:
+            setattr(self, attribute, dialog.selection())
+            self.refresh_filter_buttons()
+            self.refresh_list()
+            if self.current_id not in self.article_list.ids() + self.draft_list.ids():
+                if self.article_list.count():
+                    self.article_list.setCurrentRow(0)
+                else:
+                    self.load_article(None)
+        dialog.deleteLater()
+
+    def refresh_filter_buttons(self):
+        for button, title, selected in ((self.category_filter_button, '分类', self.selected_categories), (self.tag_filter_button, '标签', self.selected_tags)):
+            button.setText(title if selected is None else f'{title} · {len(selected)}')
+
+    def toggle_space(self):
+        self.set_space(not self.outside)
+
+    def set_space(self, outside):
+        if not self.save(True): return False
+        self.timeline_preview_timer.stop()
+        self.pending_timeline_date = None
+        self.outside = bool(outside)
+        self.repository.outside = self.outside
+        self.browse_date = None
+        self.trash = False
+        self.article_mode.blockSignals(True)
+        self.article_mode.setCurrentIndex(0)
+        self.article_mode.blockSignals(False)
+        self.ui_settings.setValue('outside_timeline', self.outside)
+        self.ui_settings.sync()
+        self.load_article(None)
+        self.apply_space_ui()
+        self.refresh_list()
+        for index in range(self.article_list.count()):
+            key = self.article_list.item(index).data(Qt.ItemDataRole.UserRole)
+            if self.repository.is_outside(key) == self.outside:
+                self.article_list.setCurrentRow(index)
+                break
+        else:
+            for index, key in enumerate(self.draft_list.ids()):
+                if self.repository.is_outside(key) == self.outside:
+                    self.draft_list.setCurrentRow(index)
+                    break
+        return True
+
+    def apply_space_ui(self):
+        self.space_button.setText('时间线之内' if self.outside else '时间线之外')
+        for widget in (self.timeline, self.date, self.date_label, self.date_scope_button, self.timeline_overview_button, self.people_archive_button, self.people_button, self.people_expand, self.random_memory_button):
+            widget.setVisible(not self.outside)
+        self.article_mode.model().item(1).setEnabled(not self.outside)
+        if self.outside:
+            self.people_shortcuts.hide()
+            self.reading_nav.hide()
+        self.title.setPlaceholderText('给文章一个标题' if self.outside else '给今天一个标题')
 
     def open_overview(self):
         if not self.save(True): return
@@ -675,7 +867,27 @@ class MainWindow(QMainWindow):
         if dialog.article_id:
             self.search.clear();self.category=None;self.tag=None
             self.clear_day();self.refresh_categories()
+            wanted_space = self.repository.is_outside(dialog.article_id)
+            if wanted_space != self.outside and not self.set_space(wanted_space): return
+            self.selected_categories = None; self.selected_tags = None
+            self.refresh_filter_buttons()
             self.load_article(dialog.article_id);self.refresh_list()
+
+    def update_date_sort_button(self):
+        direction = self.sort_key if self.sort_key in ('diary_asc', 'diary_desc') else self.ui_settings.value('sidebar_date_direction', 'diary_desc')
+        ascending = direction == 'diary_asc'
+        current = '过去到现在' if ascending else '现在到过去'
+        following = '现在到过去' if ascending else '过去到现在'
+        self.date_sort_button.setIcon(date_sort_icon(ascending, bool(self.property('darkTheme')), self.devicePixelRatioF(), self.property('colorTheme')))
+        self.date_sort_button.setAccessibleName('日期排序：' + current)
+        recent = self.article_mode.currentData() == 'recent'
+        self.date_sort_button.setEnabled(not recent)
+        self.date_sort_button.setToolTip('最近打开模式按打开顺序显示' if recent else f'当前：{current}；点击切换为{following}')
+
+    def toggle_date_sort(self):
+        direction = self.sort_key if self.sort_key in ('diary_asc', 'diary_desc') else self.ui_settings.value('sidebar_date_direction', 'diary_desc')
+        target = 'diary_desc' if direction == 'diary_asc' else 'diary_asc'
+        self.sort_combo.setCurrentIndex(self.sort_combo.findData(target))
 
     def change_sort(self):
         selected = self.sort_combo.currentData()
@@ -686,6 +898,8 @@ class MainWindow(QMainWindow):
             return
         self.sort_key = selected
         self.ui_settings.setValue('article_sort', selected)
+        if selected in ('diary_asc', 'diary_desc'):
+            self.ui_settings.setValue('sidebar_date_direction', selected)
         self.ui_settings.sync()
         self.refresh_list()
 
@@ -821,6 +1035,7 @@ class MainWindow(QMainWindow):
             self.article_list.setCurrentItem(previous)
             self.article_list.blockSignals(False)
             return
+        self.draft_list.blockSignals(True); self.draft_list.setCurrentRow(-1); self.draft_list.blockSignals(False)
         self.load_article(item.data(Qt.ItemDataRole.UserRole))
 
     def load_article(self, article_id):
@@ -830,6 +1045,18 @@ class MainWindow(QMainWindow):
         self.update_pin()
         self.dirty = False
         article = self.repository.get(article_id) if article_id else None
+        if article:
+            self.outside = self.repository.is_outside(article.id)
+            self.repository.outside = self.outside
+            self.ui_settings.setValue('outside_timeline', self.outside)
+            if self.outside:
+                self.timeline_preview_timer.stop()
+                self.pending_timeline_date = None
+                self.browse_date = None
+                if self.article_mode.currentData() == 'date':
+                    self.article_mode.blockSignals(True)
+                    self.article_mode.setCurrentIndex(0)
+                    self.article_mode.blockSignals(False)
         if article and not article.deleted_at:
             self.recent_ids = [article.id] + [key for key in self.recent_ids if key != article.id]
             self.recent_ids = self.recent_ids[:200]
@@ -895,14 +1122,16 @@ class MainWindow(QMainWindow):
             self.preview.setChecked(False)
         editable = bool(self.current_id) and not self.trash and not self.preview.isChecked()
         self.editor.setReadOnly(not editable)
+        self.editor.set_end_marker_visible(bool(self.current_id) and self.preview.isChecked() and not self.trash)
         for widget in (self.title, self.date, self.categories, self.tags, self.bold,
-                       self.italic, self.indent_button, self.image_button, self.attachment_button, self.people_button,
+                       self.italic, self.center_button, self.indent_button, self.image_button, self.attachment_button, self.people_button,
                        self.caption_button, self.remove_link_button, self.place_link_button):
             widget.setEnabled(editable)
         self.date.setEnabled(not self.trash and not self.preview.isChecked())
         self.preview.setEnabled(bool(self.current_id) and not self.trash)
         self.preview.setText('返回编辑' if self.preview.isChecked() else '阅读模式')
         self.set_reading_layout(self.preview.isChecked() and not self.trash)
+        self.apply_space_ui()
         self.shortcut_body.setEnabled(editable)
         self.update_image_actions()
 
@@ -924,7 +1153,9 @@ class MainWindow(QMainWindow):
             self.refresh_reading_nav()
 
     def reading_rows(self):
-        return sorted(self.repository.list(self.search.text(), self.category, tag=self.tag),
+        from northdiary.ui.label_filter_dialog import filter_articles
+        rows = filter_articles(self.repository, self.repository.list(self.search.text(), self.category, tag=self.tag), self.selected_categories, self.selected_tags)
+        return sorted(rows,
                       key=lambda article: (article.diary_date.replace('未知', '00'), article.created_at, article.id))
 
     def refresh_reading_nav(self):
@@ -970,17 +1201,21 @@ class MainWindow(QMainWindow):
             if 0 <= index < len(keys): self.open_reading_article(keys[index])
 
     def new_article(self):
+        inherited_category = self.categories.text()
+        if not inherited_category and not self.current_id:
+            if self.category:
+                inherited_category = self.category
+            elif self.selected_categories and len(self.selected_categories) == 1:
+                inherited_category = next(iter(self.selected_categories))
         chosen_date = self.date.text() if not self.current_id else None
         if not self.save(True):
             return
         try:
-            article = self.repository.create()
+            article = self.repository.create(draft=True, categories=inherited_category.replace("，", ",").split(","))
         except Exception as error:
             self.fail(error)
             return
         self.trash = False
-        self.category = None
-        self.tag = None
         self.search.blockSignals(True)
         self.search.clear()
         self.search.blockSignals(False)
@@ -1002,6 +1237,22 @@ class MainWindow(QMainWindow):
 
     def toggle_bold(self):
         self.editor.setFontWeight(QFont.Weight.Normal if self.editor.fontWeight() >= QFont.Weight.Bold else QFont.Weight.Bold)
+        self.editor.setFocus()
+
+    def sync_alignment_button(self):
+        self.center_button.setChecked(bool(self.editor.alignment() & Qt.AlignmentFlag.AlignHCenter))
+
+    def toggle_center(self):
+        if not self.current_id or self.editor.isReadOnly():
+            return
+        centered = bool(self.editor.alignment() & Qt.AlignmentFlag.AlignHCenter)
+        cursor = self.editor.textCursor()
+        fmt = cursor.blockFormat()
+        fmt.setAlignment(Qt.AlignmentFlag.AlignLeft if centered else Qt.AlignmentFlag.AlignHCenter)
+        if not centered:
+            fmt.setTextIndent(0)
+        cursor.mergeBlockFormat(fmt)
+        self.sync_alignment_button()
         self.editor.setFocus()
 
     def toggle_italic(self):
@@ -1133,7 +1384,10 @@ class MainWindow(QMainWindow):
             self.refresh_people()
             self.refresh_list()
             if result.article_ids and not self.current_id:
-                self.load_article(result.article_ids[0])
+                visible_ids = {article.id for article in self.repository.list()}
+                first_visible = next((key for key in result.article_ids if key in visible_ids), None)
+                if first_visible:
+                    self.load_article(first_visible)
                 self.refresh_list()
             QMessageBox.information(self, '导入完成',
                                     f'已导入 {result.imported} 篇（含冲突副本 {result.conflicts} 篇），'
@@ -1228,6 +1482,10 @@ class MainWindow(QMainWindow):
         dialog = MemoryDialog(self.repository, self.attachments, self)
         dialog.setAttribute(Qt.WidgetAttribute.WA_DeleteOnClose)
         dialog.exec()
+
+    def manage_data_location(self):
+        from northdiary.ui.storage_actions import manage_location
+        manage_location(self)
 
     def closeEvent(self, event):
         if self.save(True):

@@ -6,7 +6,7 @@ import re
 from uuid import UUID
 
 FORMAT = 'NorthDiary-EPUB'
-FORMAT_VERSION = 3
+FORMAT_VERSION = 4
 MANIFEST_PATH = 'EPUB/northdiary/manifest.json'
 MAX_MANIFEST = 8 * 1024 * 1024
 MAX_MEMBER = 32 * 1024 * 1024
@@ -24,6 +24,7 @@ def validate_record(record):
         return value
 
     require(isinstance(record, dict))
+    require(type(record.get('outside_timeline', False)) is bool)
     value = string(record['id'], 36)
     require(str(UUID(value)) == value)
     require(bool(string(record['title']).strip()))
@@ -81,6 +82,7 @@ def article_record(repository, article, assets):
         'id': article.id, 'title': article.title, 'diary_date': article.diary_date,
         'body_html': article.body_html, 'created_at': article.created_at,
         'updated_at': article.updated_at, 'pinned': int(article.pinned),
+        'outside_timeline': repository.is_outside(article.id),
         'categories': repository.labels(article.id, 'categories'),
         'tags': repository.labels(article.id, 'tags'),
         'temporary_tags': repository.temporary_tags(article.id),
@@ -92,6 +94,8 @@ def article_record(repository, article, assets):
 def fingerprint(record):
     # Chapter order changes image filenames; identity must not depend on them.
     data = dict(record)
+    if not data.get("outside_timeline"):
+        data.pop("outside_timeline", None)
     if not data.get('people'):
         data.pop('people', None)
     else:

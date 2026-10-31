@@ -48,3 +48,25 @@ def landscape_icon(dark=False, ratio=1.0, theme=None):
     painter.drawPath(path)
     painter.end()
     return QIcon(pixmap)
+
+
+def date_sort_icon(ascending=False, dark=False, ratio=1.0, theme=None):
+    """Triangle direction above a rectangular base, in logical pixels."""
+    pixmap = QPixmap(round(24*ratio), round(24*ratio))
+    pixmap.setDevicePixelRatio(ratio)
+    pixmap.fill(Qt.GlobalColor.transparent)
+    painter = QPainter(pixmap)
+    painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+    tint = QColor('#cfb2bf' if theme == 'wine' else '#8d765b' if theme == 'cream' else '#b5bbc1' if dark else '#53645a')
+    painter.setPen(QPen(tint, 1.5, Qt.PenStyle.SolidLine, Qt.PenCapStyle.RoundCap, Qt.PenJoinStyle.RoundJoin))
+    painter.setBrush(tint)
+    triangle = QPainterPath()
+    if ascending:
+        triangle.moveTo(7, 10); triangle.lineTo(12, 4); triangle.lineTo(17, 10)
+    else:
+        triangle.moveTo(7, 4); triangle.lineTo(17, 4); triangle.lineTo(12, 10)
+    triangle.closeSubpath(); painter.drawPath(triangle)
+    painter.setBrush(Qt.BrushStyle.NoBrush)
+    painter.drawRect(5, 15, 14, 5)
+    painter.end()
+    return QIcon(pixmap)

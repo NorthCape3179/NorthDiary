@@ -11,11 +11,11 @@ class EpubWindowTests(unittest.TestCase):
     tearDown = test_ui.WindowTests.tearDown
 
     def test_epub_export_saves_pending_qt_html_and_selection_order(self):
-            self.window.new_article()
+            self.window.new_article(); self.window.confirm_article(self.window.current_id)
             first = self.window.current_id
             self.window.title.setText('第一篇')
             self.window.editor.setHtml('<p><b>真实 Qt 粗体</b> &amp; 中文</p>')
-            self.window.new_article()
+            self.window.new_article(); self.window.confirm_article(self.window.current_id)
             second = self.window.current_id
             self.window.title.setText('第二篇最新标题')
             self.window.editor.setPlainText('尚未自动保存的正文')
@@ -37,7 +37,7 @@ class EpubWindowTests(unittest.TestCase):
             self.assertFalse(self.window.dirty)
 
     def test_epub_dialog_checkboxes_validation_and_cancel(self):
-            self.window.new_article()
+            self.window.new_article(); self.window.confirm_article(self.window.current_id)
             dialog = ExportDialog(self.window.repository.list())
             dialog.chapters.item(0).setCheckState(Qt.CheckState.Unchecked)
             self.assertEqual(dialog.selection().article_ids, ())
@@ -55,7 +55,7 @@ class EpubWindowTests(unittest.TestCase):
                 save_dialog.assert_not_called()
 
     def test_epub_export_stops_on_save_failure_and_reports_export_failure(self):
-            self.window.new_article()
+            self.window.new_article(); self.window.confirm_article(self.window.current_id)
             self.window.editor.setPlainText('必须保留')
             with patch.object(self.window.repository, 'save', side_effect=OSError('不可写')), \
                  patch.object(self.window, 'fail'), \

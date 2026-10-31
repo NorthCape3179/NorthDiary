@@ -166,7 +166,7 @@ class PeopleTests(unittest.TestCase):
         from northdiary.services.github_sync import validate_package
         validate_package(path.read_bytes())
         with ZipFile(path) as book:
-            manifest = json.loads(book.read(MANIFEST_PATH)); self.assertEqual(manifest['version'], 3)
+            manifest = json.loads(book.read(MANIFEST_PATH)); self.assertEqual(manifest['version'], 4)
             self.assertEqual(len(manifest['articles'][0]['people']), 1)
         db = Database(self.root/'other')
         try:

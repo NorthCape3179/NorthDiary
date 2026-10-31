@@ -14,12 +14,12 @@ class AboutTests(unittest.TestCase):
     tearDown = test_ui.WindowTests.tearDown
 
     def test_version_sections_author_and_accurate_capabilities(self):
-        self.assertEqual(__version__, '1.7.0')
+        self.assertEqual(__version__, '1.7.5-beta')
         dialog = AboutDialog(self.window)
         try:
             text = dialog.browser.toPlainText()
-            self.assertIn('v1.7.0', self.window.windowTitle())
-            self.assertIn('v1.7.0', dialog.windowTitle())
+            self.assertIn('v1.7.5-beta', self.window.windowTitle())
+            self.assertIn('v1.7.5-beta', dialog.windowTitle())
             for value in ['关于 NorthDiary','设计理念','当前版本','更新日志','未来计划','项目信息',
                           'PySide6 / Qt','NorthCape','539241974','ChatGPT','（其实是主力）',
                           '自助备份恢复','暂不支持自定义头像照片','不是自动双向同步']:
@@ -45,7 +45,7 @@ class AboutTests(unittest.TestCase):
             dialog.return_value.exec.assert_called_once()
 
     def test_real_about_closes_without_altering_article_or_leaving_hidden_dialog(self):
-        w=self.window;w.new_article();w.editor.setPlainText('详情弹窗不替换正文');w.timer.stop()
+        w=self.window;w.new_article(); w.confirm_article(w.current_id);w.editor.setPlainText('详情弹窗不替换正文');w.timer.stop()
         before=w.editor.toPlainText();key=w.current_id
         QTimer.singleShot(40,lambda: QApplication.activeModalWidget().accept())
         w.open_about()

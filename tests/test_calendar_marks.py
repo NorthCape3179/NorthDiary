@@ -11,7 +11,7 @@ class CalendarMarksTests(unittest.TestCase):
     def test_marks_exact_month_year_and_excludes_trash(self):
         w=self.window
         for date in ('2026-07-15', '2026-08-未知', '2025-未知-未知', '2026-07-16'):
-            w.new_article();w.date.setText(date);w.save()
+            w.new_article(); w.confirm_article(w.current_id);w.date.setText(date);w.save()
         w.repository.set_deleted(w.current_id)
         for dark in (False, True):
             w.set_theme(dark)

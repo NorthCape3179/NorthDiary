@@ -20,9 +20,9 @@ class OverviewDeleteTests(unittest.TestCase):
 
     def test_right_click_deletes_clicked_row_and_keeps_other_article(self):
         w = self.window
-        w.new_article(); w.title.setText('A'); w.save()
+        w.new_article(); w.confirm_article(w.current_id); w.title.setText('A'); w.save()
         first = w.current_id
-        w.new_article(); w.title.setText('B'); w.editor.setPlainText('保留正文'); w.save()
+        w.new_article(); w.confirm_article(w.current_id); w.title.setText('B'); w.editor.setPlainText('保留正文'); w.save()
         second = w.current_id
         d = self.dialog()
         point = d.table.visualItemRect(d.table.item(0, 2)).center()
@@ -43,7 +43,7 @@ class OverviewDeleteTests(unittest.TestCase):
 
     def test_cancel_save_failure_and_blank_area_keep_article(self):
         w = self.window
-        w.new_article(); w.title.setText('A'); w.save()
+        w.new_article(); w.confirm_article(w.current_id); w.title.setText('A'); w.save()
         key = w.current_id
         d = self.dialog()
         with patch.object(QMenu, 'exec') as execute:
@@ -60,7 +60,7 @@ class OverviewDeleteTests(unittest.TestCase):
 
     def test_delete_current_article_clears_editor_and_is_restorable(self):
         w = self.window
-        w.new_article(); w.title.setText('A'); w.editor.setPlainText('待保存正文')
+        w.new_article(); w.confirm_article(w.current_id); w.title.setText('A'); w.editor.setPlainText('待保存正文')
         key = w.current_id
         d = self.dialog()
         with patch.object(QMessageBox, 'question', return_value=QMessageBox.StandardButton.Yes):

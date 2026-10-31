@@ -28,6 +28,8 @@ class FloatingPanel(QFrame):
     def eventFilter(self, target, event):
         if not isValid(self) or not self.isVisible():
             return False
+        if self.property('contextMenuOpen'):
+            return False
         if event.type() == QEvent.Type.MouseButtonPress:
             point = event.globalPosition().toPoint()
             in_panel = self.rect().contains(self.mapFromGlobal(point))
@@ -71,7 +73,7 @@ class MenuButton(QPushButton):
         self.panel.setStyleSheet(themed_css('QFrame#comboPopup { background: #fffefa; border: 1px solid #d6dfd1; border-radius: 7px; } QPushButton { background: transparent; color: #273b37; text-align: left; border: none; padding: 8px 12px; } QPushButton:hover { background: #dbe7d8; }', dark, theme_name(self)))
         self.panel.adjustSize()
         screen = self.screen().availableGeometry()
-        point = self.mapToGlobal(QPoint(0, self.height()+3))
+        point = self.mapToGlobal(QPoint(0, -self.panel.height()-3 if getattr(self, 'open_upwards', False) else self.height()+3))
         self.panel.move(max(screen.left(), min(point.x(), screen.right()-self.panel.width()+1)),
                         max(screen.top(), min(point.y(), screen.bottom()-self.panel.height()+1)))
         self.panel.show()

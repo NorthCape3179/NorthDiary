@@ -10,7 +10,7 @@ class OverviewPinTests(unittest.TestCase):
     def test_overview_ignores_pin_sidebar_keeps_it(self):
         w = self.window
         for title in ('A文章', 'Z文章'):
-            w.new_article(); w.title.setText(title); w.save()
+            w.new_article(); w.confirm_article(w.current_id); w.title.setText(title); w.save()
         w.repository.set_pinned(w.current_id, True)
         options=[('标题', 'title'), ('创建最早', 'created_asc')]
         dialog=OverviewDialog(w.repository, options, 'title', w)

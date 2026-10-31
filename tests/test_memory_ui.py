@@ -260,7 +260,7 @@ class MemoryUITests(unittest.TestCase):
 
     def test_header_state_reopens_and_ctrl_s_works_when_save_button_hidden(self):
         self.window.header_tools.set_collapsed(True, animate=False)
-        self.window.new_article()
+        self.window.new_article(); self.window.confirm_article(self.window.current_id)
         key = self.window.current_id
         self.window.editor.setPlainText('隐藏保存按钮仍可保存')
         QTest.keyClick(self.window, Qt.Key.Key_S, Qt.KeyboardModifier.ControlModifier)
@@ -284,7 +284,7 @@ class MemoryUITests(unittest.TestCase):
         names = [tools.itemAt(i).widget().text() if isinstance(tools.itemAt(i).widget(), QPushButton) else '' for i in range(tools.count())]
         self.assertEqual(names.index('随机回忆'), names.index('数据文件夹') + 1)
         self.assertEqual(tools.itemAt(names.index('随机回忆')).widget(), self.window.random_memory_button)
-        self.window.new_article()
+        self.window.new_article(); self.window.confirm_article(self.window.current_id)
         self.window.editor.setPlainText('未保存的正文')
         with patch.object(self.window.repository, 'save', side_effect=OSError('不可写')), \
              patch.object(self.window, 'fail'), \
@@ -298,7 +298,7 @@ class MemoryUITests(unittest.TestCase):
         self.assertEqual(self.window.editor.toPlainText(), '未保存的正文')
 
     def test_opening_and_closing_real_dialogs_saves_first_without_leaving_hidden_windows(self):
-        self.window.new_article()
+        self.window.new_article(); self.window.confirm_article(self.window.current_id)
         key = self.window.current_id
         self.window.editor.setPlainText('打开前应保存')
         for opened, dialog_type in ((self.window.open_random_memory, MemoryDialog),

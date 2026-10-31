@@ -117,7 +117,7 @@ class GitHubWindowTests(unittest.TestCase):
 
     def test_upload_saves_pending_edits_and_transfers_native_epub(self):
         self.connect()
-        self.window.new_article()
+        self.window.new_article(); self.window.confirm_article(self.window.current_id)
         key = self.window.current_id
         self.window.title.setText('未保存的标题')
         self.window.editor.setPlainText('未保存的正文')
@@ -163,7 +163,7 @@ class GitHubWindowTests(unittest.TestCase):
 
     def test_save_failure_prevents_export_and_upload(self):
         self.connect()
-        self.window.new_article()
+        self.window.new_article(); self.window.confirm_article(self.window.current_id)
         self.window.editor.setPlainText('不能丢失')
         with patch.object(self.window.repository, 'save', side_effect=OSError('不可写')), \
              patch.object(self.window, 'fail'), \
@@ -220,7 +220,7 @@ class GitHubWindowTests(unittest.TestCase):
 
     def test_network_failure_and_disconnect_keep_articles(self):
         self.connect()
-        self.window.new_article()
+        self.window.new_article(); self.window.confirm_article(self.window.current_id)
         key = self.window.current_id
         self.window.editor.setPlainText('本地文章')
         self.window.save()

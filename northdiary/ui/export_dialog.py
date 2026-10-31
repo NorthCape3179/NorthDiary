@@ -23,7 +23,8 @@ class ExportDialog(QDialog):
         layout.addWidget(QLabel('勾选章节，选中一行后可上下移动调整顺序'))
         self.chapters = QListWidget()
         for article in articles:
-            item = QListWidgetItem(f'{article.diary_date}  {article.title}')
+            outside = bool(parent and getattr(parent, 'outside', False))
+            item = QListWidgetItem(article.title if outside else f'{article.diary_date}  {article.title}')
             item.setData(Qt.ItemDataRole.UserRole, article.id)
             item.setFlags(item.flags() | Qt.ItemFlag.ItemIsUserCheckable)
             item.setCheckState(Qt.CheckState.Checked)

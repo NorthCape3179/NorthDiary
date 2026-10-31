@@ -34,7 +34,7 @@ class WindowTests(unittest.TestCase):
         self.temp.cleanup()
 
     def test_autosave_and_switch(self):
-        self.window.new_article()
+        self.window.new_article(); self.window.confirm_article(self.window.current_id)
         first = self.window.current_id
         self.window.title.setText('第一篇')
         self.window.editor.setPlainText('这是一段日记')
@@ -47,17 +47,17 @@ class WindowTests(unittest.TestCase):
         self.assertFalse(self.window.dirty)
         self.assertEqual(self.window.repository.get(first).body_text, '这是一段日记')
         self.window.editor.insertPlainText('追加')
-        self.window.new_article()
+        self.window.new_article(); self.window.confirm_article(self.window.current_id)
         self.assertIn('追加', self.window.repository.get(first).body_text)
         self.window.load_article(first)
         self.assertIn('这是一段日记', self.window.editor.toPlainText())
 
     def test_failure_prevents_switch_and_close(self):
-        self.window.new_article()
+        self.window.new_article(); self.window.confirm_article(self.window.current_id)
         first = self.window.current_id
         self.window.editor.setPlainText('必须保留')
         with patch.object(self.window.repository, 'save', side_effect=OSError('磁盘不可写')), patch.object(self.window, 'fail'):
-            self.window.new_article()
+            self.window.new_article(); self.window.confirm_article(self.window.current_id)
             self.assertEqual(self.window.current_id, first)
             self.assertTrue(self.window.dirty)
             event = QCloseEvent()
@@ -67,7 +67,7 @@ class WindowTests(unittest.TestCase):
         self.assertTrue(self.window.save())
 
     def test_image_roundtrip_and_relative_resource(self):
-        self.window.new_article()
+        self.window.new_article(); self.window.confirm_article(self.window.current_id)
         key = self.window.current_id
         original = self.root / 'original.png'
         image = QImage(32, 20, QImage.Format.Format_RGB32)
@@ -86,7 +86,7 @@ class WindowTests(unittest.TestCase):
         self.assertFalse(resource.isNull())
 
     def test_category_filter_with_pending_save(self):
-        self.window.new_article()
+        self.window.new_article(); self.window.confirm_article(self.window.current_id)
         key = self.window.current_id
         self.window.categories.setText('生活，旅行')
         self.window.save()
@@ -97,7 +97,7 @@ class WindowTests(unittest.TestCase):
         self.assertEqual(self.window.repository.get(key).title, '筛选前修改')
 
     def test_tag_menu_reuse_temporary_and_left_filter(self):
-        self.window.new_article()
+        self.window.new_article(); self.window.confirm_article(self.window.current_id)
         first = self.window.current_id
         picker = self.window.tags
         with patch('northdiary.ui.tag_picker.QInputDialog.getText', side_effect=[('常用', True), ('私有备注', True)]):
@@ -106,7 +106,7 @@ class WindowTests(unittest.TestCase):
         self.window.save()
         self.assertGreater(self.window.tag_filter.findData('常用'), 0)
         self.assertEqual(self.window.tag_filter.findData('私有备注'), -1)
-        self.window.new_article()
+        self.window.new_article(); self.window.confirm_article(self.window.current_id)
         second = self.window.current_id
         self.assertEqual(picker.temporary_names, [])
         self.assertEqual(picker.combo.findData('私有备注'), -1)
@@ -124,7 +124,7 @@ class WindowTests(unittest.TestCase):
         self.assertEqual(picker.normal_names, ['常用'])
 
     def test_image_navigation_roundtrip_removal_and_viewer(self):
-        self.window.new_article()
+        self.window.new_article(); self.window.confirm_article(self.window.current_id)
         article_id = self.window.current_id
         source = self.root / 'photo.png'
         image = QImage(40, 30, QImage.Format.Format_RGB32)
@@ -150,7 +150,7 @@ class WindowTests(unittest.TestCase):
         self.assertTrue(self.window.editor.image_links(row['id']))
 
     def test_timeline_browse_does_not_change_article_date(self):
-        self.window.new_article()
+        self.window.new_article(); self.window.confirm_article(self.window.current_id)
         key = self.window.current_id
         self.window.date.setDate(QDate(2025, 3, 15))
         self.window.save()
@@ -158,7 +158,7 @@ class WindowTests(unittest.TestCase):
         self.window.browse_day(QDate(2025, 3, 16))
         self.assertEqual(self.window.article_list.count(), 0)
         self.assertEqual(self.window.repository.get(key).diary_date, '2025-03-15')
-        self.window.new_article()
+        self.window.new_article(); self.window.confirm_article(self.window.current_id)
         self.window.save()
         self.assertEqual(self.window.repository.get(self.window.current_id).diary_date, '2025-03-16')
         self.window.clear_day()
@@ -166,9 +166,9 @@ class WindowTests(unittest.TestCase):
 
     def test_pin_button_and_list_reorder(self):
         self.window.sort_combo.setCurrentIndex(self.window.sort_combo.findData('manual'))
-        self.window.new_article()
+        self.window.new_article(); self.window.confirm_article(self.window.current_id)
         first = self.window.current_id
-        self.window.new_article()
+        self.window.new_article(); self.window.confirm_article(self.window.current_id)
         second = self.window.current_id
         QTest.mouseClick(self.window.pin_button, Qt.MouseButton.LeftButton)
         self.assertTrue(self.window.pin_button.isChecked())
@@ -186,13 +186,13 @@ class WindowTests(unittest.TestCase):
         self.window.sort_combo.setCurrentIndex(self.window.sort_combo.findData('manual'))
         from PySide6.QtWidgets import QAbstractItemView
         for _ in range(3):
-            self.window.new_article()
+            self.window.new_article(); self.window.confirm_article(self.window.current_id)
         self.window.repository.set_pinned(self.window.current_id, True)
         self.window.refresh_list()
         APP.processEvents()
         listing = self.window.article_list
         before = listing.ids()
-        self.assertEqual(listing.dragDropMode(), QAbstractItemView.DragDropMode.NoDragDrop)
+        self.assertEqual(listing.dragDropMode(), QAbstractItemView.DragDropMode.DropOnly)
         viewport = listing.viewport()
         start = listing.visualItemRect(listing.item(1)).center()
         QTest.mousePress(viewport, Qt.MouseButton.LeftButton, pos=start)
@@ -215,7 +215,7 @@ class WindowTests(unittest.TestCase):
     def test_trash_dialog_preview_restore_and_delete_confirmation(self):
         from northdiary.ui.trash_dialog import TrashDialog
         from PySide6.QtWidgets import QMessageBox
-        self.window.new_article()
+        self.window.new_article(); self.window.confirm_article(self.window.current_id)
         key = self.window.current_id
         self.window.editor.setPlainText('回收站预览正文')
         self.window.save()
@@ -280,16 +280,17 @@ class WindowTests(unittest.TestCase):
         self.assertTrue(combo.popup.testAttribute(Qt.WidgetAttribute.WA_NoMouseReplay))
 
     def test_floating_menu_closes_on_second_click_escape_and_outside(self):
-        combo = self.window.category_filter
+        self.window.new_article(); self.window.confirm_article(self.window.current_id)
+        combo = self.window.categories.combo
         self.assertEqual(combo.popup.windowType(), Qt.WindowType.Tool)
         QTest.mouseClick(combo, Qt.MouseButton.LeftButton)
         self.assertTrue(combo.popup.isVisible())
-        QTest.mouseClick(self.window.title, Qt.MouseButton.LeftButton)
+        QTest.mouseClick(self.window.title, Qt.MouseButton.LeftButton, pos=QPoint(10, 10))
         self.assertFalse(combo.popup.isVisible())
         QTest.mouseClick(combo, Qt.MouseButton.LeftButton)
         QTest.keyClick(combo.view(), Qt.Key.Key_Escape)
         self.assertFalse(combo.popup.isVisible())
-        self.window.new_article()
+        self.window.new_article(); self.window.confirm_article(self.window.current_id)
         plus = self.window.tags.add_button
         QTest.mouseClick(plus, Qt.MouseButton.LeftButton)
         self.assertTrue(plus.panel.isVisible())
@@ -298,12 +299,12 @@ class WindowTests(unittest.TestCase):
 
     def test_context_menu_and_recent_removal(self):
         from PySide6.QtWidgets import QMessageBox
-        self.window.new_article()
+        self.window.new_article(); self.window.confirm_article(self.window.current_id)
         first = self.window.current_id
-        self.window.new_article()
+        self.window.new_article(); self.window.confirm_article(self.window.current_id)
         second = self.window.current_id
         menu = self.window.make_article_menu(first)
-        self.assertEqual([a.text() for a in menu.actions()], ['置顶', '删除'])
+        self.assertEqual([a.text() for a in menu.actions()], ['置顶', '移到时间线之外', '删除'])
         menu.actions()[0].trigger()
         self.assertTrue(self.window.repository.get(first).pinned)
         self.assertEqual(self.window.current_id, second)
@@ -314,11 +315,11 @@ class WindowTests(unittest.TestCase):
         self.assertNotIn(first, self.window.recent_ids)
         self.assertIsNone(self.window.repository.get(first).deleted_at)
         with patch('northdiary.ui.main_window.QMessageBox.question', return_value=QMessageBox.StandardButton.Yes):
-            self.window.make_article_menu(first).actions()[1].trigger()
+            self.window.make_article_menu(first).actions()[2].trigger()
         self.assertIsNotNone(self.window.repository.get(first).deleted_at)
 
     def test_photo_board_white_cards_hover_and_click(self):
-        self.window.new_article()
+        self.window.new_article(); self.window.confirm_article(self.window.current_id)
         source = self.root / 'photo.png'
         image = QImage(80, 60, QImage.Format.Format_RGB32)
         image.fill(0xff72937e)
@@ -346,7 +347,7 @@ class WindowTests(unittest.TestCase):
             for hour in (0, 6, 12, 18, 23):
                 for dark, phase in ((False, '白天'), (True, '黑夜')):
                     self.assertEqual(background_name(datetime(2026, month, 1, hour), dark=dark), season+phase+'.png')
-        self.window.new_article()
+        self.window.new_article(); self.window.confirm_article(self.window.current_id)
         self.window.editor.setPlainText('背景开关不改正文')
         self.window.save()
         html = self.window.editor.toHtml()
@@ -367,13 +368,13 @@ class WindowTests(unittest.TestCase):
             other.close()
 
     def test_background_tracks_article_date_and_theme(self):
-        self.window.new_article()
+        self.window.new_article(); self.window.confirm_article(self.window.current_id)
         july = self.window.current_id
         self.window.date.setDate(QDate(2026, 7, 15))
         self.window.set_theme(False)
         self.assertEqual(self.window.paper.name, '夏天白天.png')
         self.window.save()
-        self.window.new_article()
+        self.window.new_article(); self.window.confirm_article(self.window.current_id)
         self.window.date.setDate(QDate(2026, 11, 2))
         self.window.set_theme(True)
         self.assertEqual(self.window.paper.name, '秋天黑夜.png')
@@ -387,7 +388,7 @@ class WindowTests(unittest.TestCase):
 
     def test_custom_date_input_and_calendar_validation(self):
         from northdiary.ui.date_picker import DateDialog, parse_date
-        self.window.new_article()
+        self.window.new_article(); self.window.confirm_article(self.window.current_id)
         self.window.date.input.setText('20260715')
         self.assertTrue(self.window.date.commit())
         self.assertEqual(self.window.date.date(), QDate(2026, 7, 15))
@@ -404,7 +405,7 @@ class WindowTests(unittest.TestCase):
         dialog.close()
 
     def test_all_eight_theme_choices_and_background_phase(self):
-        self.window.new_article()
+        self.window.new_article(); self.window.confirm_article(self.window.current_id)
         self.window.date.setDate(QDate(2026, 7, 15))
         for key in ('light','dark','cream','wine','burgundy','citrus','blue','gray'):
             self.window.set_theme(key in ('dark', 'wine'))
@@ -414,11 +415,11 @@ class WindowTests(unittest.TestCase):
             self.assertIn('黑夜' if key in ('dark','wine') else '白天', self.window.paper.name)
 
     def test_date_recent_modes_and_history_persist(self):
-        self.window.new_article()
+        self.window.new_article(); self.window.confirm_article(self.window.current_id)
         first = self.window.current_id
         self.window.date.setDate(QDate(2020, 1, 2))
         self.window.save()
-        self.window.new_article()
+        self.window.new_article(); self.window.confirm_article(self.window.current_id)
         second = self.window.current_id
         self.window.save()
         self.window.load_article(first)
@@ -440,7 +441,7 @@ class WindowTests(unittest.TestCase):
             other.close()
 
     def test_date_scope_button_repeated_toggle_and_single_category(self):
-        self.window.new_article()
+        self.window.new_article(); self.window.confirm_article(self.window.current_id)
         key=self.window.current_id
         self.window.date.setDate(QDate(2026,7,15))
         self.window.categories.setText('生活')
@@ -461,7 +462,7 @@ class WindowTests(unittest.TestCase):
     def test_article_overview_search_sort_and_open(self):
         from northdiary.ui.overview_dialog import OverviewDialog
         for title in ('Z文章','A文章'):
-            self.window.new_article();self.window.title.setText(title);self.window.save()
+            self.window.new_article(); self.window.confirm_article(self.window.current_id);self.window.title.setText(title);self.window.save()
         options=[(self.window.sort_combo.itemText(i),self.window.sort_combo.itemData(i)) for i in range(self.window.sort_combo.count())]
         dialog=OverviewDialog(self.window.repository,options,self.window.sort_key,self.window)
         spy=QSignalSpy(dialog.sortingChanged)
@@ -491,7 +492,7 @@ class WindowTests(unittest.TestCase):
     def test_theme_persistence_and_reading_actions(self):
         from PySide6.QtGui import QPalette
         self.assertFalse(self.window.place_link_button.isEnabled())
-        self.window.new_article()
+        self.window.new_article(); self.window.confirm_article(self.window.current_id)
         self.window.editor.setPlainText('主题切换不改变正文')
         self.window.set_theme(True)
         self.assertLess(self.window.palette().color(QPalette.ColorRole.Window).lightness(), 128)
@@ -516,13 +517,13 @@ class WindowTests(unittest.TestCase):
     def test_global_sort_and_new_theme_preserve_original_choices(self):
         from PySide6.QtGui import QPalette
         self.assertEqual(self.window.article_mode.currentData(), 'all')
-        self.assertEqual(self.window.sort_key, 'created_desc')
-        self.window.new_article()
+        self.assertEqual(self.window.sort_key, 'diary_desc')
+        self.window.new_article(); self.window.confirm_article(self.window.current_id)
         first = self.window.current_id
         self.window.date.setDate(QDate(2020, 1, 1))
         self.window.title.setText('B')
         self.window.save()
-        self.window.new_article()
+        self.window.new_article(); self.window.confirm_article(self.window.current_id)
         second = self.window.current_id
         self.window.date.setDate(QDate(2025, 7, 1))
         self.window.title.setText('A')

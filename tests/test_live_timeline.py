@@ -10,9 +10,9 @@ class LiveTimelineTests(unittest.TestCase):
 
     def test_drag_previews_before_release_without_resetting_drag(self):
         w = self.window
-        w.new_article(); w.date.setDate(QDate(2025,1,2))
+        w.new_article(); w.confirm_article(w.current_id); w.date.setDate(QDate(2025,1,2))
         w.title.setText('第二天的文章'); w.save(); key = w.current_id
-        w.new_article(); w.date.setDate(QDate(2025,1,1))
+        w.new_article(); w.confirm_article(w.current_id); w.date.setDate(QDate(2025,1,1))
         w.editor.setPlainText('拖动前尚未保存'); first = w.current_id
         t = w.timeline
         QTest.mousePress(t, Qt.MouseButton.LeftButton, pos=QPoint(30,35))

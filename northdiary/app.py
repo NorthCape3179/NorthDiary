@@ -45,10 +45,25 @@ def main():
     except Exception as error:
         QMessageBox.critical(None, '无法启动 NorthDiary', str(error))
         return 1
-    window.show()
-    try:
-        return app.exec()
-    finally:
-        database.close()
-        lock.unlock()
-
+    while True:
+        window.show()
+        try:
+            result = app.exec()
+        finally:
+            database.close()
+            lock.unlock()
+        target = getattr(window, 'requested_data_root', None)
+        if target is None:
+            return result
+        window.deleteLater()
+        try:
+            lock = QLockFile(str(target / 'northdiary.lock'))
+            lock.setStaleLockTime(0)
+            if not lock.tryLock(100):
+                raise RuntimeError('目标数据目录已被另一个窗口打开。')
+            database = Database(target)
+            window = MainWindow(database)
+        except Exception as error:
+            QMessageBox.critical(None, '无法打开日记数据', str(error))
+            lock.unlock()
+            return 1

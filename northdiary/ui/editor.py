@@ -1,10 +1,75 @@
-from PySide6.QtCore import Signal, Qt
-from PySide6.QtGui import QTextDocument, QTextCharFormat, QColor, QTextCursor, QFontMetricsF
+from PySide6.QtCore import Signal, Qt, QTimer, QRectF, QPointF
+from PySide6.QtGui import QTextDocument, QTextCharFormat, QColor, QTextCursor, QFontMetricsF, QPainter, QPen
 from PySide6.QtWidgets import QTextEdit
 
 
 class ArticleEditor(QTextEdit):
     imageActivated = Signal(str)
+
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.end_marker_visible = False
+        self._updating_end_range = False
+        self._end_timer = QTimer(self)
+        self._end_timer.setSingleShot(True)
+        self._end_timer.timeout.connect(self._refresh_end_range)
+        self.document().documentLayout().documentSizeChanged.connect(self._queue_end_range)
+        self.verticalScrollBar().rangeChanged.connect(self._queue_end_range)
+
+    def set_end_marker_visible(self, visible):
+        self.end_marker_visible = bool(visible)
+        self._refresh_end_range()
+        self.viewport().update()
+
+    def _queue_end_range(self, *_):
+        if not self._updating_end_range and self.end_marker_visible:
+            self._end_timer.start(0)
+
+    def _refresh_end_range(self):
+        if self._updating_end_range: return
+        from math import ceil
+        self._updating_end_range = True
+        try:
+            extra = 60 if self.end_marker_visible else 0
+            height = self.document().documentLayout().documentSize().height()
+            self.verticalScrollBar().setMaximum(max(0, ceil(height + extra - self.viewport().height())))
+        finally:
+            self._updating_end_range = False
+        self.viewport().update()
+
+    def resizeEvent(self, event):
+        super().resizeEvent(event)
+        if hasattr(self, '_end_timer'): self._queue_end_range()
+
+    def scrollContentsBy(self, dx, dy):
+        super().scrollContentsBy(dx, dy)
+        if getattr(self, 'end_marker_visible', False): self.viewport().update()
+
+    def paintEvent(self, event):
+        super().paintEvent(event)
+        if not self.end_marker_visible: return
+        # Paint outside the document: the decoration is never saved or copied.
+        y = self.document().documentLayout().documentSize().height() + 25 - self.verticalScrollBar().value()
+        if y < -20 or y > self.viewport().height() + 20: return
+        from northdiary.ui.theme import color
+        painter = QPainter(self.viewport())
+        painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+        font = painter.font()
+        font.setPointSizeF(10)
+        font.setLetterSpacing(font.SpacingType.AbsoluteSpacing, 2)
+        painter.setFont(font)
+        metrics = QFontMetricsF(font)
+        width = metrics.horizontalAdvance('END')
+        center = self.viewport().width()/2
+        tint = color('#75827a', self)
+        painter.setPen(QPen(tint, 1))
+        margin, gap = 28, 16
+        if center-width/2-gap > margin:
+            painter.drawLine(QPointF(margin, y), QPointF(center-width/2-gap, y))
+            painter.drawLine(QPointF(center+width/2+gap, y), QPointF(self.viewport().width()-margin, y))
+        painter.drawText(QRectF(center-width/2-2, y-metrics.height()/2, width+4, metrics.height()), Qt.AlignmentFlag.AlignCenter, 'END')
+        painter.end()
+
 
     def mouseReleaseEvent(self, event):
         href = self.anchorAt(event.position().toPoint())

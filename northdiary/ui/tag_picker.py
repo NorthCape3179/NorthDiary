@@ -25,6 +25,8 @@ class TagPicker(QWidget):
         self.combo.setSizeAdjustPolicy(QComboBox.SizeAdjustPolicy.AdjustToMinimumContentsLengthWithIcon)
         self.combo.setMinimumContentsLength(8)
         self.combo.activated.connect(self.choose)
+        from northdiary.ui.definition_menu import bind_combo
+        bind_combo(self.combo, self, "relationships" if owner_label == "人物" else "tags")
         row.addWidget(self.combo, 1)
         self.add_button = MenuButton('＋')
         self.add_button.setFixedSize(32, 32)
@@ -129,6 +131,9 @@ class TagPicker(QWidget):
                 row = QHBoxLayout(widget)
                 row.setContentsMargins(9, 2, 3, 2)
                 row.setSpacing(3)
+                from northdiary.ui.definition_menu import menu
+                widget.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
+                widget.customContextMenuRequested.connect(lambda pos, w=widget, n=name, t=temporary: self.remove_tag(n, True) if t else menu(self, 'relationships' if self.owner_label == '人物' else 'tags', n, w.mapToGlobal(pos)))
                 text = QLabel(name)
                 text.setMaximumWidth(145)
                 text.setToolTip(name)

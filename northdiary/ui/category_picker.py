@@ -14,6 +14,8 @@ class CategoryPicker(QWidget):
         self.combo.setMinimumContentsLength(6)
         self.combo.setSizeAdjustPolicy(ComboBox.SizeAdjustPolicy.AdjustToMinimumContentsLengthWithIcon)
         self.combo.activated.connect(self.choose)
+        from northdiary.ui.definition_menu import bind_combo
+        bind_combo(self.combo, self, "categories")
         self.add_button = QPushButton('＋')
         self.add_button.setFixedSize(32, 32)
         self.add_button.setStyleSheet('QPushButton { padding: 0; font-size: 20px; }')

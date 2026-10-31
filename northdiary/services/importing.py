@@ -110,7 +110,7 @@ class EpubImporter:
                 manifest = json.loads(archive.read(MANIFEST_PATH), object_pairs_hook=_json_object)
                 _require(isinstance(manifest, dict) and manifest.get('format') == FORMAT,
                          '不是 NorthDiary 专用导出格式')
-                _require(type(manifest.get('version')) is int and manifest['version'] in (1, 2, FORMAT_VERSION),
+                _require(type(manifest.get('version')) is int and manifest['version'] in (1, 2, 3, FORMAT_VERSION),
                          '此导出格式版本暂不支持，请更新软件')
                 records = manifest.get('articles')
                 _require(isinstance(records, list) and 0 < len(records) <= 1000, '文章清单无效')
@@ -258,6 +258,8 @@ class EpubImporter:
                         VALUES (?,?,?,?,?,?,?,NULL,?,?)''',
                         (article.target_id, title, record['diary_date'], article.body_html, article.body_text,
                          record['created_at'], record['updated_at'], record['pinned'], position))
+                    if record.get('outside_timeline', False):
+                        self.db.execute('INSERT INTO outside_articles VALUES (?)', (article.target_id,))
                     for kind in ('categories', 'tags'):
                         column = 'category_id' if kind == 'categories' else 'tag_id'
                         for name in record[kind]:

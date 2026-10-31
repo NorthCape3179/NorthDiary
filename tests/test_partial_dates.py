@@ -11,7 +11,7 @@ class PartialDateTests(unittest.TestCase):
     def test_partial_persistence_and_timeline_filter(self):
         keys = []
         for value in ('2026-未知-未知', '2026-07-未知', '2026-07-15'):
-            self.window.new_article()
+            self.window.new_article(); self.window.confirm_article(self.window.current_id)
             self.window.date.setText(value)
             self.window.save()
             keys.append(self.window.current_id)

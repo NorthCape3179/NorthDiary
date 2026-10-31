@@ -3,7 +3,7 @@ from contextlib import closing
 from uuid import uuid4
 from pathlib import Path
 
-SCHEMA_VERSION = 5
+SCHEMA_VERSION = 7
 SCHEMA = '''
 BEGIN IMMEDIATE;
 CREATE TABLE articles (
@@ -135,6 +135,40 @@ class Database:
                         name TEXT NOT NULL, PRIMARY KEY(person_id, name)
                     );
                     PRAGMA user_version=5;
+                    COMMIT;''')
+            except Exception:
+                self.connection.rollback()
+                self.connection.close()
+                raise
+        if version < 6:
+            try:
+                if version == 5:
+                    backups = self.root / 'backups'
+                    backups.mkdir(exist_ok=True)
+                    with closing(sqlite3.connect(backups / f'before-v6-{uuid4().hex}.sqlite3')) as snapshot:
+                        self.connection.backup(snapshot)
+                self.connection.executescript('''BEGIN IMMEDIATE;
+                    CREATE TABLE IF NOT EXISTS outside_articles (
+                        article_id TEXT PRIMARY KEY REFERENCES articles(id) ON DELETE CASCADE
+                    );
+                    PRAGMA user_version=6;
+                    COMMIT;''')
+            except Exception:
+                self.connection.rollback()
+                self.connection.close()
+                raise
+        if version < 7:
+            try:
+                if version == 6:
+                    backups = self.root / 'backups'
+                    backups.mkdir(exist_ok=True)
+                    with closing(sqlite3.connect(backups / f'before-v7-{uuid4().hex}.sqlite3')) as snapshot:
+                        self.connection.backup(snapshot)
+                self.connection.executescript('''BEGIN IMMEDIATE;
+                    CREATE TABLE IF NOT EXISTS draft_articles (
+                        article_id TEXT PRIMARY KEY REFERENCES articles(id) ON DELETE CASCADE
+                    );
+                    PRAGMA user_version=7;
                     COMMIT;''')
             except Exception:
                 self.connection.rollback()

@@ -13,15 +13,37 @@ class ArticleRepository:
     def __init__(self, database: Database):
         self.database = database
         self.db = database.connection
+        self.outside = False
 
-    def create(self):
+    def create(self, draft=False, categories=()):
         stamp = now()
         position = self.db.execute('SELECT COALESCE(MAX(sort_order),0)+1 FROM articles').fetchone()[0]
         article = Article(str(uuid4()), '未命名文章', stamp[:10], '', '', stamp, stamp, sort_order=position)
         with self.db:
             self.db.execute('INSERT INTO articles VALUES (?,?,?,?,?,?,?,?,?,?)',
                             tuple(vars(article).values()))
+            if draft:
+                self.db.execute('INSERT INTO draft_articles VALUES (?)', (article.id,))
+            for name in dict.fromkeys(n.strip() for n in categories if n.strip()):
+                self.db.execute('INSERT OR IGNORE INTO categories(id,name) VALUES (?,?)', (str(uuid4()), name))
+                category_id = self.db.execute('SELECT id FROM categories WHERE name=?', (name,)).fetchone()[0]
+                self.db.execute('INSERT INTO article_categories VALUES (?,?)', (article.id, category_id))
+            if self.outside:
+                self.db.execute("INSERT INTO outside_articles VALUES (?)", (article.id,))
         return article
+
+    def is_draft(self, article_id):
+        return self.db.execute('SELECT 1 FROM draft_articles WHERE article_id=?', (article_id,)).fetchone() is not None
+
+    def confirm_draft(self, article_id):
+        with self.db:
+            article = self.get(article_id)
+            if article.deleted_at:
+                raise ValueError('回收站中的文章不能确认')
+            self.db.execute('DELETE FROM draft_articles WHERE article_id=?', (article_id,))
+
+    def is_outside(self, article_id):
+        return self.db.execute('SELECT 1 FROM outside_articles WHERE article_id=?', (article_id,)).fetchone() is not None
 
     def get(self, article_id):
         row = self.db.execute('SELECT * FROM articles WHERE id=?', (article_id,)).fetchone()
@@ -29,8 +51,12 @@ class ArticleRepository:
             raise KeyError('文章不存在')
         return Article(**dict(row))
 
-    def list(self, query='', category=None, trash=False, tag=None, sort='created_desc', pinned_first=True):
+    def list(self, query='', category=None, trash=False, tag=None, sort='created_desc', pinned_first=True, all_spaces=False, drafts_only=False, include_drafts=False):
+        outside = 'EXISTS (SELECT 1 FROM outside_articles o WHERE o.article_id=a.id)'
+        date_value = f"CASE WHEN {outside} THEN a.created_at ELSE replace(a.diary_date,'未知','00') END"
         orders = {
+            'diary_desc': f'{outside} ASC, {date_value} DESC',
+            'diary_asc': f'{outside} ASC, {date_value} ASC',
             'created_desc': 'a.created_at DESC', 'created_asc': 'a.created_at ASC',
             'updated_desc': 'a.updated_at DESC', 'updated_asc': 'a.updated_at ASC',
             'title': 'a.title COLLATE NOCASE ASC', 'manual': 'a.sort_order ASC',
@@ -38,6 +64,12 @@ class ArticleRepository:
         if sort not in orders:
             raise ValueError('未知排序方式')
         sql = 'SELECT a.* FROM articles a WHERE a.deleted_at IS ' + ('NOT NULL' if trash else 'NULL')
+        if not all_spaces:
+            sql += (' AND EXISTS' if self.outside else ' AND NOT EXISTS') + ' (SELECT 1 FROM outside_articles o WHERE o.article_id=a.id)'
+        if drafts_only:
+            sql += ' AND EXISTS (SELECT 1 FROM draft_articles d WHERE d.article_id=a.id)'
+        elif not include_drafts and not trash:
+            sql += ' AND NOT EXISTS (SELECT 1 FROM draft_articles d WHERE d.article_id=a.id)'
         args = []
         if query.strip():
             # Literal substring search, so percent and underscore are ordinary characters.

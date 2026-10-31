@@ -201,7 +201,8 @@ class EpubExporter:
             body.insert(0, heading)
             date = etree.Element('p', {'class': 'date'})
             date.text = INVALID_XML.sub('', article.diary_date)
-            body.insert(1, date)
+            if not self.repository.is_outside(article.id):
+                body.insert(1, date)
             chapter = epub.EpubHtml(uid=f'chapter-{index}', title=heading.text,
                                     file_name=f'chapter-{index}.xhtml', lang='zh-CN')
             chapter.content = etree.tostring(body, encoding='unicode', method='xml')

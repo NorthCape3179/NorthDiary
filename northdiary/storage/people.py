@@ -120,4 +120,4 @@ class PeopleRepository:
         from northdiary.models import Article
         return [Article(**dict(r)) for r in self.db.execute('''SELECT a.* FROM articles a
             JOIN article_people ap ON ap.article_id=a.id
-            WHERE ap.person_id=? AND a.deleted_at IS NULL ORDER BY a.diary_date DESC, a.id''', (key,))]
+            WHERE ap.person_id=? AND a.deleted_at IS NULL AND NOT EXISTS (SELECT 1 FROM draft_articles d WHERE d.article_id=a.id) AND NOT EXISTS (SELECT 1 FROM outside_articles o WHERE o.article_id=a.id) ORDER BY a.diary_date DESC, a.id''', (key,))]

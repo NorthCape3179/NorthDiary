@@ -8,6 +8,12 @@ NorthDiary 是一款 Windows 本地图文日记与个人文集软件。用文章
 
 [下载安装 v1.7.0](https://github.com/NorthCape3179/NorthDiary/releases/tag/v1.7.0) · [v1.7.0 更新日志](docs/RELEASE-v1.7.0.md) · [开源许可证](LICENSE)
 
+## 源码预发布 v1.7.5-beta
+
+[发布页与源码下载](https://github.com/NorthCape3179/NorthDiary/releases/tag/v1.7.5-beta) · [更新日志总结](docs/RELEASE-v1.7.5-beta.md)
+
+新增时间线之外、待确认文章、分类标签多选筛选、数据位置管理与段落居中。本次只发布源码，不提供新版 EXE；下方安装说明仍适用于稳定版 v1.7.0。数据库升级至 schema v7，更新前请备份。
+
 ## 下载与安装
 
 1. 打开 [Releases 发布页](https://github.com/NorthCape3179/NorthDiary/releases/tag/v1.7.0)，下载 **`NorthDiary-Setup-v1.7.0.exe`**。

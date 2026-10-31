@@ -11,7 +11,7 @@ class ReadingNavTests(unittest.TestCase):
         w = self.window
         keys = []
         for date in ('2026-01-31', '2026-02-28', '2026-未知-未知'):
-            w.new_article(); w.date.setText(date); w.save(); keys.append(w.current_id)
+            w.new_article(); w.confirm_article(w.current_id); w.date.setText(date); w.save(); keys.append(w.current_id)
         w.load_article(keys[0])
         w.preview.setChecked(True); w.toggle_preview()
         self.assertEqual(w.image_list.parentWidget(), w.paper)

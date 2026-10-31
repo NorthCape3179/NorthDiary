@@ -29,10 +29,13 @@ class DragCard(QLabel):
 
 class ArticleList(QListWidget):
     orderRequested = Signal(list)
+    draftConfirmRequested = Signal(str)
 
     def __init__(self, parent=None):
         super().__init__(parent)
         self.setDragDropMode(QAbstractItemView.DragDropMode.NoDragDrop)
+        self.setAcceptDrops(True)
+        self.viewport().setAcceptDrops(True)
         self.setToolTip('按住文章在框内上下移动，松手保存顺序')
         self.moving_item = None
         self.sliding = False
@@ -47,6 +50,30 @@ class ArticleList(QListWidget):
         self.drop_line.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents)
         self.drop_line.setStyleSheet('background: #527c61; border-radius: 1px;')
         self.drop_line.hide()
+
+    def accepts_draft(self, event):
+        from northdiary.ui.draft_list import DRAFT_MIME, DraftList
+        return isinstance(event.source(), DraftList) and event.source().window() is self.window() and event.mimeData().hasFormat(DRAFT_MIME)
+
+    def dragEnterEvent(self, event):
+        if self.accepts_draft(event): event.acceptProposedAction()
+        else: event.ignore()
+
+    def dragMoveEvent(self, event):
+        if self.accepts_draft(event): event.acceptProposedAction()
+        else: event.ignore()
+
+    def dropEvent(self, event):
+        from northdiary.ui.draft_list import DRAFT_MIME
+        if not self.accepts_draft(event):
+            event.ignore(); return
+        try:
+            key = bytes(event.mimeData().data(DRAFT_MIME)).decode('ascii')
+            if len(key) != 36: raise ValueError('invalid article id')
+        except (ValueError, UnicodeError):
+            event.ignore(); return
+        self.draftConfirmRequested.emit(key)
+        event.acceptProposedAction()
 
     def ids(self):
         return [self.item(i).data(Qt.ItemDataRole.UserRole) for i in range(self.count())]

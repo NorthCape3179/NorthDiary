@@ -9,7 +9,7 @@ class IndentTests(unittest.TestCase):
     tearDown = test_ui.WindowTests.tearDown
 
     def test_whole_article_indent_roundtrip_and_undo(self):
-        self.window.new_article()
+        self.window.new_article(); self.window.confirm_article(self.window.current_id)
         editor = self.window.editor
         editor.setHtml('<p><b>第一段</b>正文</p><p>第二段</p><p><a href="ndiary-image:demo">图片引用</a></p>')
         original = editor.toPlainText()

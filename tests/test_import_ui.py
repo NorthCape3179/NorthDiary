@@ -40,7 +40,7 @@ class ImportWindowTests(unittest.TestCase):
 
     def test_import_real_book_saves_current_edit_and_loads_photo_references(self):
         path = self.book()
-        self.window.new_article()
+        self.window.new_article(); self.window.confirm_article(self.window.current_id)
         existing = self.window.current_id
         self.window.title.setText('本机未保存标题')
         self.window.editor.setPlainText('本机未保存正文')
@@ -76,7 +76,7 @@ class ImportWindowTests(unittest.TestCase):
         self.assertEqual(self.window.repository.list(), [])
 
     def test_save_failure_stops_before_file_dialog(self):
-        self.window.new_article()
+        self.window.new_article(); self.window.confirm_article(self.window.current_id)
         self.window.editor.setPlainText('保留正在编辑的内容')
         with patch.object(self.window.repository, 'save', side_effect=OSError('保存失败')), \
              patch.object(self.window, 'fail'), \
