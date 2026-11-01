@@ -21,9 +21,9 @@ final class DraftStore {
         catch(Exception e) { if(out!=null) file.failWrite(out); throw e; }
     }
     Article read() throws Exception {
-        if(!file.getBaseFile().exists()) return null;
         JSONObject j;
         try(InputStream in=file.openRead()) { j=new JSONObject(new String(DiaryStore.readBytes(in,16*1024*1024),StandardCharsets.UTF_8)); }
+        catch(FileNotFoundException e){return null;}
         Article a=new Article(); a.id=j.getString("id"); a.title=j.getString("title"); a.date=j.getString("date");
         a.html=j.getString("html"); a.text=j.getString("text"); a.created=j.getString("created"); a.outside=j.getBoolean("outside"); a.draft=j.getBoolean("draft");
         a.tags=array(j.getJSONArray("tags")); a.people=array(j.getJSONArray("people")); return a;

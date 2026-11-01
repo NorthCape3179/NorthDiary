@@ -31,6 +31,8 @@ public class StorageTest extends AndroidTestCase {
         Article a=article();a.date="正在输入";DraftStore drafts=new DraftStore(root);drafts.write(a);
         try{store.save(a);fail();}catch(IllegalArgumentException expected){}
         assertEquals("正在输入",drafts.read().date);assertEquals("中文正文",drafts.read().text);
+        File edit=new File(root,"mobile-edit.json"),backup=new File(root,"mobile-edit.json.bak");
+        assertTrue(edit.renameTo(backup));assertEquals("中文正文",drafts.read().text);
     }
     public void testDesktopOnlyFieldsSurviveEditing() {
         Article a=article();store.save(a);
