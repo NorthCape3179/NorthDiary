@@ -1,6 +1,6 @@
 package com.northcape.northdiary;
 
-import android.app.*;
+import android.app.Instrumentation;
 import android.content.*;
 import android.content.res.Configuration;
 import android.graphics.Color;
