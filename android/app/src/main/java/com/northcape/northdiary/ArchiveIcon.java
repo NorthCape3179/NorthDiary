@@ -9,7 +9,7 @@ import android.view.View;
 final class ArchiveIcon extends View {
     private final Glyph glyph;
     ArchiveIcon(Context c,String name,int color,int size) {
-        super(c);glyph=new Glyph(name,c.getColor(color));
+        super(c);glyph=new Glyph(name,Ui.color(c,color));
         setLayoutParams(new android.widget.LinearLayout.LayoutParams(Ui.dp(c,size),Ui.dp(c,size)));
         setImportantForAccessibility(IMPORTANT_FOR_ACCESSIBILITY_NO);
     }
@@ -21,6 +21,7 @@ final class ArchiveIcon extends View {
         @Override public void draw(Canvas c) {
             int save=c.save();c.translate(getBounds().left,getBounds().top);c.scale(getBounds().width()/24f,getBounds().height()/24f);
             switch(name) {
+                case "timeline":line(c,6,3,6,21);for(int y:new int[]{5,12,19}){c.drawCircle(6,y,2,paint);line(c,12,y,21,y);}break;
                 case "search":c.drawCircle(10,10,6,paint);line(c,14.5f,14.5f,20,20);break;
                 case "people":c.drawCircle(9,8,3,paint);c.drawArc(3,13,15,24,180,180,false,paint);c.drawArc(13,5,21,13,270,180,false,paint);c.drawArc(12,14,23,24,280,80,false,paint);break;
                 case "settings":c.drawCircle(12,12,4,paint);for(int i=0;i<8;i++){c.save();c.rotate(i*45,12,12);line(c,12,2.5f,12,5);c.restore();}c.drawCircle(12,12,8,paint);break;

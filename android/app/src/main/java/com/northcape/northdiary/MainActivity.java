@@ -19,9 +19,11 @@ public final class MainActivity extends Activity {
     private LinearLayout root,workspace;
     private EditorPanel editor;
     private MemoryPanel memories;
+    private GitHubLoginDialog githubDialog;
     private String activeId,pendingImageId,exportPath;
     String query="",tag="";
     int space=0;
+    int timelineIndex=0,timelineOffset=0;
     boolean byDate=true;
     private int tab=0,scroll=0;
     private boolean editing,dirty,wide,busy;
@@ -32,18 +34,20 @@ public final class MainActivity extends Activity {
     @Override protected void attachBaseContext(Context base){super.attachBaseContext(Appearance.wrap(base));}
 
     @Override public void onCreate(Bundle state) {
+        setTheme(Appearance.choice(this).equals("forest")?R.style.ForestTheme:R.style.AppTheme);
         super.onCreate(state);
         try {
             store=new DiaryStore(this,DiaryStore.activeRoot(this));drafts=new DraftStore(store.root);
             if(state!=null) {
                 tab=state.getInt("tab");space=state.getInt("space");activeId=state.getString("id");editing=state.getBoolean("editing");
+                timelineIndex=state.getInt("timelineIndex");timelineOffset=state.getInt("timelineOffset");
                 query=state.getString("query","");tag=state.getString("tag","");byDate=state.getBoolean("byDate",true);scroll=state.getInt("scroll");
                 pendingImageId=state.getString("image");exportPath=state.getString("export");
             }
             Article recovered=drafts.read();
             if(recovered!=null) {
                 try{recovered.created=store.get(recovered.id).created;}catch(IllegalArgumentException ignored){recovered.created="";}
-                activeId=recovered.id;editing=true;tab=0;dirty=true;
+                activeId=recovered.id;editing=true;if(tab!=3)tab=0;dirty=true;
             }
             build(recovered);
             if(recovered!=null)Toast.makeText(this,"已恢复尚未保存的编辑内容",Toast.LENGTH_LONG).show();
@@ -53,12 +57,7 @@ public final class MainActivity extends Activity {
     }
     private void build(Article supplied) {
         editor=null;memories=null;
-        root=Ui.column(this);root.setBackgroundColor(getColor(R.color.paper));root.setFocusableInTouchMode(true);root.setDefaultFocusHighlightEnabled(false);
-        if(Build.VERSION.SDK_INT>=30)root.setOnApplyWindowInsetsListener((v,insets)->{
-            android.graphics.Insets safe=insets.getInsets(WindowInsets.Type.systemBars()|WindowInsets.Type.displayCutout()|WindowInsets.Type.ime());
-            v.setPadding(safe.left,safe.top,safe.right,safe.bottom);return insets;
-        });
-        else root.setOnApplyWindowInsetsListener((v,insets)->{v.setPadding(insets.getSystemWindowInsetLeft(),insets.getSystemWindowInsetTop(),insets.getSystemWindowInsetRight(),insets.getSystemWindowInsetBottom());return insets;});
+        root=Ui.column(this);root.setBackgroundColor(Ui.color(this,R.color.paper));root.setFocusableInTouchMode(true);root.setDefaultFocusHighlightEnabled(false);
         setContentView(root);root.requestApplyInsets();
         if(Build.VERSION.SDK_INT>=26){
             boolean light=(getResources().getConfiguration().uiMode&Configuration.UI_MODE_NIGHT_MASK)!=Configuration.UI_MODE_NIGHT_YES;
@@ -76,7 +75,10 @@ public final class MainActivity extends Activity {
         if(tab==1)workspace.addView(new PeoplePanel(this,store),new LinearLayout.LayoutParams(-1,-1));
         else if(tab==2)workspace.addView(settings(),new LinearLayout.LayoutParams(-1,-1));
         else {
-            if(activeId==null||wide)buildList();
+            if(activeId==null||wide){
+                if(tab==3)workspace.addView(new TimelinePanel(this,store,activeId),new LinearLayout.LayoutParams(wide?Ui.dp(this,380):-1,-1));
+                else buildList();
+            }
             if(activeId!=null) {
                 Article a=supplied!=null?supplied:store.get(activeId);editor=new EditorPanel(this,store,a,editing);
                 LinearLayout.LayoutParams pane=new LinearLayout.LayoutParams(0,-1,1);pane.setMargins(Ui.dp(this,wide?8:12),0,Ui.dp(this,wide?20:12),0);editor.setBackground(Ui.surface(this,R.color.card,24,true));workspace.addView(editor,pane);
@@ -88,7 +90,7 @@ public final class MainActivity extends Activity {
         }
         FrameLayout footer=new FrameLayout(this);footer.setPadding(Ui.dp(this,16),Ui.dp(this,10),Ui.dp(this,16),Ui.dp(this,10));
         FrameLayout.LayoutParams nav=new FrameLayout.LayoutParams(Math.min(Ui.dp(this,540),Ui.dp(this,getResources().getConfiguration().screenWidthDp-32)),-2,Gravity.CENTER);
-        footer.addView(Ui.navigation(this,tab,this::navigate),nav);root.addView(footer);root.requestFocus();
+        footer.addView(Ui.navigation(this,tab,this::navigate),nav);root.addView(footer);KeyboardInsets.bind(this,root,footer);root.requestFocus();
     }
     private void buildList() {
         memories=new MemoryPanel(this,store);workspace.addView(memories,new LinearLayout.LayoutParams(wide?Ui.dp(this,360):-1,-1));
@@ -103,11 +105,11 @@ public final class MainActivity extends Activity {
     private void navigate(int target){if(busy||!saveEditor(true))return;tab=target;activeId=null;editing=false;scroll=0;build(null);}
     void newArticle() {
         if(busy||!saveEditor(true))return;
-        Article a=new Article();a.id=UUID.randomUUID().toString();a.outside=space==1;a.draft=true;
+        Article a=new Article();a.id=UUID.randomUUID().toString();a.outside=tab==0&&space==1;a.draft=true;
         activeId=a.id;editing=true;dirty=true;scroll=0;build(a);writeDraft(true);
     }
     void openArticle(String id,boolean edit) {
-        if(busy||!saveEditor(true))return;activeId=id;editing=edit;tab=0;scroll=0;dirty=false;build(null);
+        if(busy||!saveEditor(true))return;activeId=id;editing=edit;if(tab!=3)tab=0;scroll=0;dirty=false;build(null);
     }
     void editArticle(Article a) {
         if(a.html.contains("-qt-")||a.html.contains("<table")) {
@@ -144,17 +146,19 @@ public final class MainActivity extends Activity {
     }
     void restoreArticle(String id){try{store.deleted(id,false);activeId=null;editing=false;build(null);}catch(Exception e){Ui.error(this,e);}}
     private View settings() {return new SettingsPanel(this,store);}
+    void githubLogin(){githubDialog=new GitHubLoginDialog(this);}
+    void refreshAccount(){if(tab==2&&!isDestroyed())build(null);}
     AlertDialog themeDialog;
     void showThemePicker(){
-        String[] values={"system","light","dark"};String selected=Appearance.choice(this);int index=0;
+        String[] values={"system","light","dark","forest"};String selected=Appearance.choice(this);int index=0;
         for(int i=0;i<values.length;i++)if(values[i].equals(selected))index=i;
         themeDialog=new AlertDialog.Builder(this).setTitle("界面主题")
-            .setSingleChoiceItems(new String[]{"跟随系统","浅色 · 米色与红酒","深色 · 暮色酒红"},index,(dialog,i)->{dialog.dismiss();setThemeChoice(values[i]);})
+            .setSingleChoiceItems(new String[]{"跟随系统","浅色 · 米色与红酒","深色 · 暮色酒红","深色 · 森林绿"},index,(dialog,i)->{dialog.dismiss();setThemeChoice(values[i]);})
             .setNegativeButton("取消",null).show();
     }
     void setThemeChoice(String choice){
         if(busy||!saveEditor(true))return;
-        if(!Arrays.asList("system","light","dark").contains(choice))throw new IllegalArgumentException("未知主题");
+        if(!Arrays.asList("system","light","dark","forest").contains(choice))throw new IllegalArgumentException("未知主题");
         if(!getSharedPreferences("appearance",0).edit().putString("theme",choice).commit()){
             Ui.error(this,new IOException("主题设置保存失败，请重试"));return;
         }
@@ -223,9 +227,10 @@ public final class MainActivity extends Activity {
     @Override protected void onSaveInstanceState(Bundle state) {
         if(editor!=null){writeDraft(false);scroll=editor.getScrollY();}
         state.putInt("tab",tab);state.putInt("space",space);state.putString("id",activeId);state.putBoolean("editing",editing);
+        state.putInt("timelineIndex",timelineIndex);state.putInt("timelineOffset",timelineOffset);
         state.putString("query",query);state.putString("tag",tag);state.putBoolean("byDate",byDate);state.putInt("scroll",scroll);
         state.putString("image",pendingImageId);state.putString("export",exportPath);super.onSaveInstanceState(state);
     }
-    @Override public void onBackPressed(){if(busy)return;if(activeId!=null&&tab==0)backFromArticle();else if(tab!=0)navigate(0);else if(saveEditor(true))super.onBackPressed();}
-    @Override protected void onDestroy(){handler.removeCallbacksAndMessages(null);if(store!=null&&!busy)store.close();super.onDestroy();}
+    @Override public void onBackPressed(){if(busy)return;if(activeId!=null&&(tab==0||tab==3))backFromArticle();else if(tab!=0)navigate(0);else if(saveEditor(true))super.onBackPressed();}
+    @Override protected void onDestroy(){handler.removeCallbacksAndMessages(null);if(githubDialog!=null)githubDialog.dismiss();if(store!=null&&!busy)store.close();super.onDestroy();}
 }

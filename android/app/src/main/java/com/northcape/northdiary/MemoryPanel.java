@@ -34,7 +34,7 @@ final class MemoryPanel extends LinearLayout {
         Ui.watch(query,()->{host.query=query.getText().toString();refresh();});refresh();
     }
     private void renderSpaces(){
-        spaces.removeAllViews();String[] names={"时间线","时间线之外","待确认","回收站"};
+        spaces.removeAllViews();String[] names={"有日期","时间线之外","待确认","回收站"};
         for(int i=0;i<names.length;i++){
             final int selected=i;TextView chip=Ui.text(host,names[i],12,i==host.space?R.color.on_accent:R.color.muted);chip.setGravity(Gravity.CENTER);chip.setMinHeight(Ui.dp(host,40));chip.setPadding(Ui.dp(host,13),Ui.dp(host,9),Ui.dp(host,13),Ui.dp(host,9));
             chip.setBackground(Ui.ripple(host,i==host.space?R.color.accent:R.color.paper,13,false));chip.setSelected(i==host.space);chip.setFocusable(true);

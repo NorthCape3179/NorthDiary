@@ -54,8 +54,8 @@ public class ThemeTest extends ActivityInstrumentationTestCase2<MainActivity> {
         getInstrumentation().waitForIdleSync();assertEquals(value,Appearance.choice(current));
         int mode=current.getResources().getConfiguration().uiMode&Configuration.UI_MODE_NIGHT_MASK;
         int expected=value.equals("system")?(getInstrumentation().getTargetContext().getResources().getConfiguration().uiMode&Configuration.UI_MODE_NIGHT_MASK)
-            :value.equals("dark")?Configuration.UI_MODE_NIGHT_YES:Configuration.UI_MODE_NIGHT_NO;
-        assertEquals(expected,mode);assertEquals(Color.parseColor(expected==Configuration.UI_MODE_NIGHT_YES?"#242222":"#F5F0E6"),current.getColor(R.color.paper));
+            :(value.equals("dark")||value.equals("forest"))?Configuration.UI_MODE_NIGHT_YES:Configuration.UI_MODE_NIGHT_NO;
+        assertEquals(expected,mode);assertEquals(Color.parseColor(value.equals("forest")?"#17231E":expected==Configuration.UI_MODE_NIGHT_YES?"#242222":"#F5F0E6"),Ui.color(current,R.color.paper));
         try(DiaryStore store=new DiaryStore(current,testRoot)){assertEquals(sample.title,store.get(sample.id).title);}
     }
     public void testThemePickerRecreationAndColdLaunch()throws Throwable {
@@ -67,7 +67,7 @@ public class ThemeTest extends ActivityInstrumentationTestCase2<MainActivity> {
         current=(MainActivity)getInstrumentation().startActivitySync(new Intent(getInstrumentation().getTargetContext(),MainActivity.class).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK));
         getInstrumentation().waitForIdleSync();assertEquals("dark",Appearance.choice(current));assertEquals(Color.parseColor("#242222"),current.getColor(R.color.paper));
         UiTestCapture.save(getInstrumentation(),"04-home-dark");clickText("设置");choose(1,"light");choose(0,"system");choose(2,"dark");choose(1,"light");
-        clickText("人物");UiTestCapture.save(getInstrumentation(),"05-people-light");
+        clickText("人物");UiTestCapture.save(getInstrumentation(),"05-people-light");clickText("设置");choose(3,"forest");UiTestCapture.save(getInstrumentation(),"06-forest-theme");
     }
     @Override protected void tearDown()throws Exception {
         if(current!=null){getInstrumentation().runOnMainSync(()->current.finish());getInstrumentation().waitForIdleSync();}

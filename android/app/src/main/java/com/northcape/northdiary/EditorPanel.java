@@ -20,9 +20,10 @@ final class EditorPanel extends ScrollView {
     private final TextView status,peopleLabel;
     private List<String> selectedPeople;
     private boolean bodyChanged;
+    private boolean indentEnabled;
     private final List<Attachment> attachments;
     EditorPanel(MainActivity host,DiaryStore store,Article article,boolean edit) {
-        super(host);this.host=host;this.store=store;this.article=article;selectedPeople=new ArrayList<>(article.people);
+        super(host);setTag("article-reader");this.host=host;this.store=store;this.article=article;selectedPeople=new ArrayList<>(article.people);
         attachments=store.attachments(article.id);
         setFillViewport(true);setVerticalScrollBarEnabled(false);LinearLayout content=Ui.column(host);Ui.pad(content,20);addView(content);
         LinearLayout actions=Ui.row(host);
@@ -46,6 +47,8 @@ final class EditorPanel extends ScrollView {
         body=Ui.input(host,"写下想留下的记忆……",false);body.setGravity(Gravity.TOP);body.setMinLines(12);body.setTextSize(17);body.setBackground(null);body.setPadding(0,Ui.dp(host,8),0,Ui.dp(host,20));body.setLineSpacing(Ui.dp(host,6),1.1f);
         body.setInputType(android.text.InputType.TYPE_CLASS_TEXT|android.text.InputType.TYPE_TEXT_FLAG_MULTI_LINE|android.text.InputType.TYPE_TEXT_FLAG_CAP_SENTENCES);
         body.setText(ArticleText.parse(host,article.html,attachments));
+        indentEnabled=host.getSharedPreferences("editor",0).getBoolean("autoIndent",true);
+        if(edit)ParagraphFormatting.autoIndent(body.getText(),indentEnabled,ParagraphFormatting.indentWidth(host));
         peopleLabel=Ui.text(host,"",14,R.color.accent);refreshPeople();
         if(edit) {
             content.addView(title);
@@ -57,7 +60,15 @@ final class EditorPanel extends ScrollView {
             LinearLayout toolbar=Ui.row(host);
             toolbar.addView(Ui.button(host,"加粗",()->format(Typeface.BOLD)));
             toolbar.addView(Ui.button(host,"斜体",()->format(Typeface.ITALIC)));
+            toolbar.addView(Ui.button(host,"居中",()->{
+                ParagraphFormatting.toggleCenter(body.getText(),Math.max(0,body.getSelectionStart()),Math.max(0,body.getSelectionEnd()),indentEnabled,ParagraphFormatting.indentWidth(host));bodyChanged=true;host.editorChanged();
+            }));
             toolbar.addView(Ui.button(host,"添加图片链接",host::pickImage));
+            toolbar.addView(Ui.button(host,"自动缩进",()->{
+                indentEnabled=!indentEnabled;host.getSharedPreferences("editor",0).edit().putBoolean("autoIndent",indentEnabled).apply();
+                ParagraphFormatting.autoIndent(body.getText(),indentEnabled,ParagraphFormatting.indentWidth(host));bodyChanged=true;host.editorChanged();
+                Toast.makeText(host,indentEnabled?"已开启自动首行缩进（两字宽）":"已关闭自动首行缩进",Toast.LENGTH_SHORT).show();
+            }));
             for(int i=0;i<toolbar.getChildCount()-1;i++){
                 LinearLayout.LayoutParams p=(LinearLayout.LayoutParams)toolbar.getChildAt(i).getLayoutParams();p.rightMargin=Ui.dp(host,8);toolbar.getChildAt(i).setLayoutParams(p);
             }
@@ -65,7 +76,11 @@ final class EditorPanel extends ScrollView {
             Ui.gap(content,10);content.addView(body);
             content.addView(Ui.text(host,"选中文字后设置格式。图片以文件名链接保存在文章中。",11,R.color.muted));Ui.gap(content,12);
             Ui.watch(title,host::editorChanged);Ui.watch(date,host::editorChanged);Ui.watch(tags,host::editorChanged);
-            Ui.watch(body,()->{bodyChanged=true;host.editorChanged();});
+            body.addTextChangedListener(new TextWatcher(){
+                public void beforeTextChanged(CharSequence s,int start,int count,int after){}
+                public void onTextChanged(CharSequence s,int start,int before,int count){bodyChanged=true;host.editorChanged();}
+                public void afterTextChanged(Editable text){ParagraphFormatting.autoIndent(text,indentEnabled,ParagraphFormatting.indentWidth(host));}
+            });
             outside.setOnCheckedChangeListener((b,checked)->{date.setEnabled(!checked);host.editorChanged();});
             draft.setOnCheckedChangeListener((b,checked)->host.editorChanged());
         } else {
@@ -89,7 +104,7 @@ final class EditorPanel extends ScrollView {
         article.outside=outside.isChecked();article.draft=draft.isChecked();
         article.tags=new ArrayList<>();for(String tag:tags.getText().toString().split("[,，\\n]"))if(!tag.trim().isEmpty())article.tags.add(tag.trim());
         article.people=new ArrayList<>(selectedPeople);
-        if(bodyChanged) { article.html=Html.toHtml(body.getText(),Html.TO_HTML_PARAGRAPH_LINES_CONSECUTIVE);article.text=body.getText().toString(); }
+        if(bodyChanged) { article.html=ParagraphFormatting.html(body.getText());article.text=body.getText().toString(); }
         if(article.outside) {
             try{article.date=PartialDate.normalize(article.date);}catch(IllegalArgumentException e){article.date=java.time.LocalDate.now().toString();}
         }

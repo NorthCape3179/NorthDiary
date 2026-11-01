@@ -1,6 +1,17 @@
-# NorthDiary 安卓端 0.1.1-alpha
+# NorthDiary 安卓端 0.1.2-alpha
 
 原生 Android 应用，与 Windows 客户端并列放在本仓库。使用 Java 17、Android 原生视图和 SQLite，无运行时第三方依赖，不使用网页应用框架。
+
+## 0.1.2 时间线与编辑、账号
+
+- 底部导航新增独立时间线；连续节点按真实年/月分组，从近到远展示。仅年份、仅年月不伪造具体日期；排除时间线之外、待确认与回收站，空年/月不显示。支持年份跳转、回到最近、阅读返回和滚动位置恢复，宽屏并排阅读。
+- 键盘显示时隐藏应用底部导航；API 30+ 统一处理系统栏与键盘 inset，避免重复挤占编辑区域。
+- 自动首行两字宽缩进与当前/选中段落居中；缩进使用视觉 margin，不往正文插入空格。样式按段落保存到正常 HTML，保留粗体、斜体与图片/网页链接，编辑与阅读还原。
+- 新增深色森林绿，包含原生控件与自绘控件配色。
+- GitHub 账号登录：设备授权需用户自己的 OAuth Client ID 且启用 Device Flow（可沿用桌面端）；也支持专用访问令牌。当前仅请求 read:user 账号权限，不上传日记，不执行文章同步。
+- 登录凭据由 Android Keystore AES/GCM 加密保存，位于日记备份之外；退出仅移除本机登录，官网授权由用户自行撤销。未内置第三方 Client ID/Client Secret，不使用连接器凭据。
+- GitHub 协议通过可替换网络层测试，凭据通过真机 Keystore 测试；真实账号授权仍需用户在 GitHub 完成，不把模拟响应测试称为已登录真实账号。
+- 继续沿用 0.1.1 的签名缓存；交付前核对签名，匹配时可直接覆盖安装 0.1.1。
 
 ## 0.1.1 界面与主题修复
 
@@ -42,7 +53,7 @@ gradle :app:testDebugUnitTest :app:lintDebug :app:assembleDebug
 gradle :app:connectedDebugAndroidTest
 ```
 
-源码工程尚未包含 Gradle wrapper；请使用 Gradle 8.9。仓库 Actions 的 **Android alpha** 流程自动配置工具链，生成 `NorthDiary-android-0.1.1-alpha` artifact，里面的 `app-debug.apk` 可安装。调试签名缓存失效时，后续 APK 可能无法直接覆盖安装；请先备份，正式发布前需配置持久发行签名。
+源码工程尚未包含 Gradle wrapper；请使用 Gradle 8.9。仓库 Actions 的 **Android alpha** 流程自动配置工具链，生成 `NorthDiary-android-0.1.2-alpha` artifact，里面的 `app-debug.apk` 可安装。调试签名缓存失效时，后续 APK 可能无法直接覆盖安装；请先备份，正式发布前需配置持久发行签名。
 
 ## 验证范围
 

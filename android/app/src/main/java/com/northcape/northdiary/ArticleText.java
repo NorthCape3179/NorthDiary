@@ -23,7 +23,7 @@ final class ArticleText {
             img.appendReplacement(result,Matcher.quoteReplacement(replacement));
         }
         img.appendTail(result);
-        SpannableStringBuilder text=new SpannableStringBuilder(Html.fromHtml(result.toString(),Html.FROM_HTML_MODE_COMPACT));
+        SpannableStringBuilder text=ParagraphFormatting.parse(c,result.toString());
         for(URLSpan span:text.getSpans(0,text.length(),URLSpan.class)) {
             int start=text.getSpanStart(span),end=text.getSpanEnd(span);text.removeSpan(span);
             text.setSpan(new ManagedLink(span.getURL()),start,end,Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
