@@ -25,4 +25,9 @@ public class ParagraphFormattingTest extends AndroidTestCase {
         assertEquals(2,text.getSpans(0,text.length(),ParagraphFormatting.Indent.class).length);
         ParagraphFormatting.autoIndent(text,false,34);assertEquals(0,text.getSpans(0,text.length(),ParagraphFormatting.Indent.class).length);assertEquals("第一段\n第二段",text.toString());
     }
+    public void testReverseSelectionAndMultipleParagraphCenterCanToggleOff(){
+        SpannableStringBuilder text=new SpannableStringBuilder("第一段\n第二段");ParagraphFormatting.toggleCenter(text,text.length(),0,true,34);
+        text=ParagraphFormatting.parse(getContext(),ParagraphFormatting.html(text));assertEquals(2,text.getSpans(0,text.length(),AlignmentSpan.class).length);
+        ParagraphFormatting.toggleCenter(text,text.length(),0,true,34);assertEquals(0,text.getSpans(0,text.length(),AlignmentSpan.class).length);assertEquals("第一段\n第二段",text.toString());
+    }
 }

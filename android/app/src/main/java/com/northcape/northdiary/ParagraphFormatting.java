@@ -54,8 +54,10 @@ final class ParagraphFormatting {
         }
     }
     static void toggleCenter(Editable text,int from,int to,boolean indent,int width){
-        int start=lineStart(text,from),end=lineEnd(text,to>from&&to>0&&text.charAt(to-1)=='\n'?to-1:to);
-        boolean clear=centered(text,start,end);
+        int low=Math.max(0,Math.min(text.length(),Math.min(from,to))),high=Math.max(0,Math.min(text.length(),Math.max(from,to)));
+        int start=lineStart(text,low),end=lineEnd(text,high>low&&high>0&&text.charAt(high-1)=='\n'?high-1:high);
+        boolean clear=true;int at=start;
+        do{int next=Math.min(lineEnd(text,at),end);if(!centered(text,at,next))clear=false;if(next<=at)break;at=next;}while(at<end);
         for(AlignmentSpan span:text.getSpans(start,end,AlignmentSpan.class)){
             int left=text.getSpanStart(span),right=text.getSpanEnd(span);text.removeSpan(span);
             if(left<start)text.setSpan(new AlignmentSpan.Standard(span.getAlignment()),left,start,Spanned.SPAN_PARAGRAPH);

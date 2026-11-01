@@ -48,7 +48,11 @@ final class GitHubLoginDialog {
         });
     }
     private void buttons(boolean enabled){start.setEnabled(enabled);connect.setEnabled(enabled);}
-    private void error(Exception error){state.setText(error instanceof java.net.SocketTimeoutException?"GitHub 连接超时，请检查网络后重试。":error.getMessage()==null?"连接失败，请重试。":error.getMessage());}
+    private void error(Exception error){
+        if(error instanceof org.json.JSONException){state.setText("GitHub 响应格式异常，请重试。");return;}
+        if(error instanceof java.security.GeneralSecurityException){state.setText("本机加密存储暂不可用，请重试。");return;}
+        state.setText(error instanceof java.net.SocketTimeoutException?"GitHub 连接超时，请检查网络后重试。":error.getMessage()==null?"连接失败，请重试。":error.getMessage());
+    }
     private synchronized void cancel(){generation++;handler.removeCallbacksAndMessages(null);challenge=null;code.setText("");working=false;buttons(true);}
     private void start(){
         if(working)return;cancel();int id=generation;activeClient=client.getText().toString().trim();state.setText("正在申请验证码…");
