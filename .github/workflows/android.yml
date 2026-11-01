@@ -77,7 +77,11 @@ jobs:
           working-directory: android
           script: |
             gradle --no-daemon :app:connectedDebugAndroidTest
-            adb pull /sdcard/Android/data/com.northcape.northdiary/files/screenshots screenshots
+            adb install -r app/build/outputs/apk/debug/app-debug.apk
+            adb shell am start -n com.northcape.northdiary/.MainActivity
+            sleep 2
+            mkdir -p screenshots
+            adb exec-out screencap -p > screenshots/home.png
       - uses: actions/upload-artifact@v4
         if: always()
         with:

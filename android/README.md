@@ -38,8 +38,8 @@ gradle :app:connectedDebugAndroidTest
 ## 验证范围
 
 - JUnit：模糊日期规范化、闰年及非法输入。
-- Android instrumentation：真实 SQLite 保存回滚及重试、标签搜索、人物关联、时间线之外、回收站、失败编辑日志、备份往返、缺失附件及路径穿越拒绝。
-- 手机与平板 emulator 配置：pixel_2、pixel_c，API 30，启动与新建文章冒烟检查。
+- Android instrumentation：真实 SQLite 保存回滚及重试、标签搜索、人物关联、时间线之外、回收站、失败编辑日志及原子文件恢复、桌面专属字段保留、备份往返、缺失附件及路径穿越拒绝。
+- 手机与平板 emulator 配置：pixel_2、pixel_c，API 30，验证编辑页的单栏/双栏选择及 Activity 重建后恢复未完成的日期输入。
 - 尚需用户真机验收：中文输入法、长文编辑、横竖屏与多窗口交互、图片外部查看器、系统文档选择器及跨端备份包。
 
 ## 初版限制
