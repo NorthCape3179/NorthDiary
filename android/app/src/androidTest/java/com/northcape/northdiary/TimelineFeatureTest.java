@@ -37,7 +37,7 @@ public class TimelineFeatureTest extends ActivityInstrumentationTestCase2<MainAc
         current=getActivity();getInstrumentation().waitForIdleSync();
         runTestOnUiThread(()->assertTrue(tag(current.getWindow().getDecorView(),"时间线").performClick()));getInstrumentation().waitForIdleSync();
         runTestOnUiThread(()->{
-            TimelinePanel panel=type(current.getWindow().getDecorView(),TimelinePanel.class);assertNotNull(panel);ListView list=type(panel,ListView.class);int count=0;
+            TimelinePanel panel=type(current.getWindow().getDecorView(),TimelinePanel.class);assertNotNull(panel);ListView list=type(panel,ListView.class);assertEquals("The first year header must remain visible",0,list.getFirstVisiblePosition());int count=0;
             for(int i=0;i<list.getAdapter().getCount();i++){TimelineEntries.Entry e=(TimelineEntries.Entry)list.getAdapter().getItem(i);if(e.article!=null){count++;assertFalse(e.article.title.equals("不属于时间线"));assertFalse(e.article.title.equals("尚未确认"));assertFalse(e.article.title.equals("回收站记录"));}}
             assertEquals(4,count);assertTrue(tag(current.getWindow().getDecorView(),"时间线").isSelected());
         });

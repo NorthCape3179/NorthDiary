@@ -26,8 +26,10 @@ final class TimelinePanel extends LinearLayout {
         list=new ListView(host);list.setDivider(new ColorDrawable(Color.TRANSPARENT));list.setDividerHeight(0);list.setVerticalScrollBarEnabled(false);list.setClipToPadding(false);list.setPadding(0,0,0,Ui.dp(host,16));
         list.setAdapter(new BaseAdapter(){
             public int getCount(){return entries.size();}public Entry getItem(int i){return entries.get(i);}public long getItemId(int i){return i;}
-            @Override public boolean areAllItemsEnabled(){return false;}
-            @Override public boolean isEnabled(int position){return getItem(position).kind==Kind.ARTICLE;}
+            // Keep headers selectable so non-touch devices do not scroll past them on entry.
+            // The click listener opens article rows only.
+            @Override public boolean areAllItemsEnabled(){return true;}
+            @Override public boolean isEnabled(int position){return true;}
             @Override public int getViewTypeCount(){return 3;}
             @Override public int getItemViewType(int position){return getItem(position).kind.ordinal();}
             public View getView(int position,View old,ViewGroup parent){return entryView(getItem(position),selectedId);}
