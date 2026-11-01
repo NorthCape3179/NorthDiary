@@ -18,23 +18,20 @@ public final class MainActivity extends Activity {
     private DraftStore drafts;
     private LinearLayout root,workspace;
     private EditorPanel editor;
-    private ListView articleList;
-    private EditText search;
-    private List<Article> visible=new ArrayList<>();
-    private String activeId,query="",tag="",pendingImageId,exportPath;
-    private int tab=0,space=0,scroll=0;
-    private boolean editing,dirty,wide,byDate=true,busy;
+    private MemoryPanel memories;
+    private String activeId,pendingImageId,exportPath;
+    String query="",tag="";
+    int space=0;
+    boolean byDate=true;
+    private int tab=0,scroll=0;
+    private boolean editing,dirty,wide,busy;
     private final Handler handler=new Handler(Looper.getMainLooper());
     private final Runnable journal=()->writeDraft(false);
     private final Runnable autosave=()->saveEditor(false);
 
+    @Override protected void attachBaseContext(Context base){super.attachBaseContext(Appearance.wrap(base));}
+
     @Override public void onCreate(Bundle state) {
-        String theme=getSharedPreferences("appearance",0).getString("theme","system");
-        if(!theme.equals("system")) {
-            Configuration override=new Configuration();
-            override.uiMode=theme.equals("dark")?Configuration.UI_MODE_NIGHT_YES:Configuration.UI_MODE_NIGHT_NO;
-            applyOverrideConfiguration(override);
-        }
         super.onCreate(state);
         try {
             store=new DiaryStore(this,DiaryStore.activeRoot(this));drafts=new DraftStore(store.root);
@@ -55,7 +52,7 @@ public final class MainActivity extends Activity {
         }
     }
     private void build(Article supplied) {
-        editor=null;
+        editor=null;memories=null;
         root=Ui.column(this);root.setBackgroundColor(getColor(R.color.paper));
         if(Build.VERSION.SDK_INT>=30)root.setOnApplyWindowInsetsListener((v,insets)->{
             android.graphics.Insets safe=insets.getInsets(WindowInsets.Type.systemBars()|WindowInsets.Type.displayCutout()|WindowInsets.Type.ime());
@@ -63,8 +60,17 @@ public final class MainActivity extends Activity {
         });
         else root.setOnApplyWindowInsetsListener((v,insets)->{v.setPadding(insets.getSystemWindowInsetLeft(),insets.getSystemWindowInsetTop(),insets.getSystemWindowInsetRight(),insets.getSystemWindowInsetBottom());return insets;});
         setContentView(root);root.requestApplyInsets();
-        TextView brand=Ui.heading(this,"NorthDiary");brand.setPadding(Ui.dp(this,20),Ui.dp(this,8),Ui.dp(this,20),0);root.addView(brand);
-        TextView subtitle=Ui.text(this,"记录时间，留存记忆。",13,R.color.muted);subtitle.setPadding(Ui.dp(this,20),0,0,Ui.dp(this,8));root.addView(subtitle);
+        if(Build.VERSION.SDK_INT>=26){
+            boolean light=(getResources().getConfiguration().uiMode&Configuration.UI_MODE_NIGHT_MASK)!=Configuration.UI_MODE_NIGHT_YES;
+            getWindow().getDecorView().setSystemUiVisibility(light?View.SYSTEM_UI_FLAG_LIGHT_STATUS_BAR|View.SYSTEM_UI_FLAG_LIGHT_NAVIGATION_BAR:0);
+        }
+        LinearLayout header=Ui.row(this);header.setPadding(Ui.dp(this,22),Ui.dp(this,12),Ui.dp(this,22),Ui.dp(this,12));
+        LinearLayout mark=Ui.row(this);mark.setGravity(Gravity.CENTER);mark.setBackground(Ui.surface(this,R.color.accent,13,false));mark.addView(new ArchiveIcon(this,"compass",R.color.on_accent,25));
+        header.addView(mark,new LinearLayout.LayoutParams(Ui.dp(this,42),Ui.dp(this,42)));
+        LinearLayout brand=Ui.column(this);brand.setPadding(Ui.dp(this,12),0,0,0);TextView name=Ui.heading(this,"NorthDiary");name.setTextSize(20);brand.addView(name);
+        if(!Ui.compact(this)){Ui.gap(brand,2);TextView motto=Ui.text(this,"你的私人记忆档案馆",11,R.color.muted);brand.addView(motto);}
+        header.addView(brand,new LinearLayout.LayoutParams(0,-2,1));
+        TextView badge=Ui.text(this,"本地 · 离线",10,R.color.accent);badge.setBackground(Ui.surface(this,R.color.soft,10,false));badge.setPadding(Ui.dp(this,9),Ui.dp(this,6),Ui.dp(this,9),Ui.dp(this,6));header.addView(badge);root.addView(header);
         workspace=Ui.row(this);workspace.setGravity(Gravity.TOP);root.addView(workspace,new LinearLayout.LayoutParams(-1,0,1));
         wide=getResources().getConfiguration().screenWidthDp>=840;
         if(tab==1)workspace.addView(new PeoplePanel(this,store),new LinearLayout.LayoutParams(-1,-1));
@@ -73,53 +79,29 @@ public final class MainActivity extends Activity {
             if(activeId==null||wide)buildList();
             if(activeId!=null) {
                 Article a=supplied!=null?supplied:store.get(activeId);editor=new EditorPanel(this,store,a,editing);
-                workspace.addView(editor,new LinearLayout.LayoutParams(0,-1,1));
+                LinearLayout.LayoutParams pane=new LinearLayout.LayoutParams(0,-1,1);pane.setMargins(Ui.dp(this,wide?8:12),0,Ui.dp(this,wide?20:12),0);editor.setBackground(Ui.surface(this,R.color.card,24,true));workspace.addView(editor,pane);
                 editor.post(()->editor.scrollTo(0,scroll));
             } else if(wide) {
-                LinearLayout welcome=Ui.column(this);Ui.pad(welcome,32);welcome.addView(Ui.heading(this,"留一页，给此刻。"));
-                welcome.addView(Ui.text(this,"选择一篇回忆，或开始记录新的故事。",17,R.color.muted));workspace.addView(welcome,new LinearLayout.LayoutParams(0,-1,1));
+                View welcome=Ui.empty(this,"留一页，给此刻。","选择一篇回忆，或开始记录新的故事。","写一篇回忆",this::newArticle);
+                welcome.setBackground(Ui.surface(this,R.color.card,24,true));LinearLayout.LayoutParams p=new LinearLayout.LayoutParams(0,-1,1);p.setMargins(Ui.dp(this,8),0,Ui.dp(this,20),0);workspace.addView(welcome,p);
             }
         }
-        LinearLayout nav=Ui.row(this);
-        String[] names={"记忆","人物","设置"};for(int i=0;i<3;i++){final int target=i;Button b=Ui.button(this,names[i],()->navigate(target));if(i==tab)b.setTextColor(getColor(R.color.accent));Ui.weighted(nav,b,1);}
-        root.addView(nav);
+        FrameLayout footer=new FrameLayout(this);footer.setPadding(Ui.dp(this,16),Ui.dp(this,10),Ui.dp(this,16),Ui.dp(this,10));
+        FrameLayout.LayoutParams nav=new FrameLayout.LayoutParams(Math.min(Ui.dp(this,540),Ui.dp(this,getResources().getConfiguration().screenWidthDp-32)),-2,Gravity.CENTER);
+        footer.addView(Ui.navigation(this,tab,this::navigate),nav);root.addView(footer);
     }
     private void buildList() {
-        LinearLayout panel=Ui.column(this);Ui.pad(panel,12);
-        workspace.addView(panel,new LinearLayout.LayoutParams(wide?Ui.dp(this,320):-1,-1));
-        LinearLayout top=Ui.row(this);Ui.weighted(top,Ui.heading(this,"记忆"),1);top.addView(Ui.button(this,"＋ 新建",this::newArticle));panel.addView(top);
-        search=Ui.input(this,"搜索标题和正文",true);search.setText(query);panel.addView(search);
-        Spinner spaces=new Spinner(this);spaces.setAdapter(new ArrayAdapter<>(this,android.R.layout.simple_spinner_dropdown_item,new String[]{"时间线","时间线之外","待确认","回收站"}));
-        spaces.setSelection(space);panel.addView(spaces);
-        LinearLayout filters=Ui.row(this);Ui.weighted(filters,Ui.button(this,tag.isEmpty()?"筛选标签":tag,this::pickTag),1);
-        Ui.weighted(filters,Ui.button(this,byDate?"按事件时间":"按创建时间",()->{byDate=!byDate;refreshList();}),1);panel.addView(filters);
-        articleList=new ListView(this);articleList.setDividerHeight(Ui.dp(this,6));panel.addView(articleList,new LinearLayout.LayoutParams(-1,0,1));
-        TextView empty=Ui.text(this,"这里还没有回忆。\n点「新建」，留下一段文字。",16,R.color.muted);panel.addView(empty);articleList.setEmptyView(empty);
-        articleList.setOnItemClickListener((p,v,i,id)->openArticle(visible.get(i).id,false));
-        Ui.watch(search,()->{query=search.getText().toString();refreshList();});
-        spaces.setOnItemSelectedListener(new android.widget.AdapterView.OnItemSelectedListener(){
-            public void onNothingSelected(android.widget.AdapterView<?> p){}
-            public void onItemSelected(android.widget.AdapterView<?> p,View v,int i,long id){if(space!=i){space=i;refreshList();}}
-        });refreshList();
+        memories=new MemoryPanel(this,store);workspace.addView(memories,new LinearLayout.LayoutParams(wide?Ui.dp(this,360):-1,-1));
     }
     private void refreshList() {
-        if(articleList==null)return;visible=store.list(query,tag,space,byDate,null);
-        articleList.setAdapter(new ArrayAdapter<Article>(this,android.R.layout.simple_list_item_2,android.R.id.text1,visible){
-            @Override public View getView(int i,View view,android.view.ViewGroup parent) {
-                View row=super.getView(i,view,parent);Article a=getItem(i);
-                TextView title=row.findViewById(android.R.id.text1),summary=row.findViewById(android.R.id.text2);
-                title.setText(a.title);title.setTextColor(getColor(R.color.ink));title.setTextSize(17);title.setMaxLines(2);
-                String date=space==1?"时间线之外":PartialDate.label(a.date);
-                summary.setText(date+"  ·  "+a.text.replace('\n',' '));summary.setTextColor(getColor(R.color.muted));summary.setMaxLines(2);Ui.card(row);return row;
-            }
-        });
+        if(memories!=null)memories.refresh();
     }
-    private void pickTag() {
+    void pickTag() {
         List<String> tags=store.strings("SELECT name FROM tags ORDER BY name");tags.add(0,"全部标签");
         new AlertDialog.Builder(this).setTitle("标签筛选").setItems(tags.toArray(new String[0]),(d,i)->{tag=i==0?"":tags.get(i);if(saveEditor(true))build(null);}).show();
     }
     private void navigate(int target){if(busy||!saveEditor(true))return;tab=target;activeId=null;editing=false;scroll=0;build(null);}
-    private void newArticle() {
+    void newArticle() {
         if(busy||!saveEditor(true))return;
         Article a=new Article();a.id=UUID.randomUUID().toString();a.outside=space==1;a.draft=true;
         activeId=a.id;editing=true;dirty=true;scroll=0;build(a);writeDraft(true);
@@ -161,24 +143,29 @@ public final class MainActivity extends Activity {
             .setPositiveButton("移入",(d,w)->{try{store.deleted(id,true);activeId=null;editing=false;build(null);}catch(Exception e){Ui.error(this,e);}}).setNegativeButton("取消",null).show();
     }
     void restoreArticle(String id){try{store.deleted(id,false);activeId=null;editing=false;build(null);}catch(Exception e){Ui.error(this,e);}}
-    private View settings() {
-        LinearLayout content=Ui.column(this);Ui.pad(content,24);content.addView(Ui.heading(this,"设置"));
-        content.addView(Ui.text(this,"NorthDiary 安卓端 0.1.0-alpha\n本地记忆档案馆 · 手机与平板共用\nAGPL-3.0-or-later",16,R.color.ink));
-        content.addView(Ui.button(this,"界面主题",()->new AlertDialog.Builder(this).setTitle("界面主题").setItems(new String[]{"跟随系统","浅色 · 米色与红酒","深色"},(d,i)->{
-            if(!saveEditor(true))return;getSharedPreferences("appearance",0).edit().putString("theme",new String[]{"system","light","dark"}[i]).apply();recreate();}).show()));
-        content.addView(Ui.button(this,"导出完整备份 .ndiary",this::exportBackup));
-        content.addView(Ui.button(this,"从完整备份恢复",()->new AlertDialog.Builder(this).setTitle("恢复完整档案")
-            .setMessage("恢复会切换到备份中的完整档案，不合并记录。当前档案会保留一份恢复前快照。仅支持 schema v7 的 .ndiary 完整备份。")
-            .setPositiveButton("选择备份",(d,w)->chooseDocument(102,"*/*")).setNegativeButton("取消",null).show()));
-        String previous=getSharedPreferences("archive",0).getString("previous",null);
-        if(previous!=null)content.addView(Ui.button(this,"切回上一次恢复前的档案",()->new AlertDialog.Builder(this)
-            .setMessage("切换到上一次恢复前的完整档案？当前档案也会保留，可再次切换。")
-            .setPositiveButton("切换",(d,w)->work("检查档案",()->{File old=new File(getFilesDir(),previous);ArchiveService.validate(old);return old;},this::activateRoot))
-            .setNegativeButton("取消",null).show()));
-        content.addView(Ui.text(this,"初版限制：完整备份解压后最多 200 MiB；单张图片最多 32 MiB。\nGitHub 文章包交换、EPUB、随机回忆和自定义人物头像尚未实现。\n手机与平板支持横竖屏及分屏，宽度足够时显示左右两栏。",14,R.color.muted));
-        content.addView(Ui.button(this,"项目源码与许可证",()->ArticleText.open(this,"https://github.com/NorthCape3179/NorthDiary")));
-        return Ui.scroll(this,content);
+    private View settings() {return new SettingsPanel(this,store);}
+    AlertDialog themeDialog;
+    void showThemePicker(){
+        String[] values={"system","light","dark"};String selected=Appearance.choice(this);int index=0;
+        for(int i=0;i<values.length;i++)if(values[i].equals(selected))index=i;
+        themeDialog=new AlertDialog.Builder(this).setTitle("界面主题")
+            .setSingleChoiceItems(new String[]{"跟随系统","浅色 · 米色与红酒","深色 · 暮色酒红"},index,(dialog,i)->{dialog.dismiss();setThemeChoice(values[i]);})
+            .setNegativeButton("取消",null).show();
     }
+    void setThemeChoice(String choice){
+        if(busy||!saveEditor(true))return;
+        if(!Arrays.asList("system","light","dark").contains(choice))throw new IllegalArgumentException("未知主题");
+        if(!getSharedPreferences("appearance",0).edit().putString("theme",choice).commit()){
+            Ui.error(this,new IOException("主题设置保存失败，请重试"));return;
+        }
+        recreate();
+    }
+    void requestRestore(){new AlertDialog.Builder(this).setTitle("恢复完整档案")
+        .setMessage("恢复会切换到备份中的完整档案，不合并记录。当前档案会保留，可在设置中切回。仅支持 schema v7 的 .ndiary 完整备份。")
+        .setPositiveButton("选择备份",(d,w)->chooseDocument(102,"*/*")).setNegativeButton("取消",null).show();}
+    void previousArchive(String previous){new AlertDialog.Builder(this).setMessage("切换到上一次恢复前的档案？当前档案也会保留。")
+        .setPositiveButton("切换",(d,w)->work("检查档案",()->{File old=new File(getFilesDir(),previous);ArchiveService.validate(old);return old;},this::activateRoot))
+        .setNegativeButton("取消",null).show();}
     private void chooseDocument(int code,String mime){Intent i=new Intent(Intent.ACTION_OPEN_DOCUMENT).setType(mime).addCategory(Intent.CATEGORY_OPENABLE);startActivityForResult(i,code);}
     void pickImage(){if(!saveEditor(true))return;pendingImageId=activeId;chooseDocument(101,"image/*");}
     private interface Work<T>{T run()throws Exception;}
@@ -190,7 +177,7 @@ public final class MainActivity extends Activity {
             catch(Exception e){runOnUiThread(()->{busy=false;if(isDestroyed()){store.close();return;}progress.dismiss();Ui.error(this,e);});}
         },"northdiary-files").start();
     }
-    private void exportBackup(){work("准备完整备份",()->ArchiveService.export(this,store),file->{exportPath=file.getPath();Intent i=new Intent(Intent.ACTION_CREATE_DOCUMENT).setType("application/octet-stream").addCategory(Intent.CATEGORY_OPENABLE).putExtra(Intent.EXTRA_TITLE,"NorthDiary-"+java.time.LocalDate.now()+".ndiary");startActivityForResult(i,103);});}
+    void exportBackup(){work("准备完整备份",()->ArchiveService.export(this,store),file->{exportPath=file.getPath();Intent i=new Intent(Intent.ACTION_CREATE_DOCUMENT).setType("application/octet-stream").addCategory(Intent.CATEGORY_OPENABLE).putExtra(Intent.EXTRA_TITLE,"NorthDiary-"+java.time.LocalDate.now()+".ndiary");startActivityForResult(i,103);});}
     @Override protected void onActivityResult(int code,int result,Intent data) {
         super.onActivityResult(code,result,data);
         if(result!=RESULT_OK||data==null||data.getData()==null){if(code==103&&exportPath!=null){new File(exportPath).delete();exportPath=null;}return;}

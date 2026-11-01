@@ -3,8 +3,6 @@ on:
   push:
     branches: [main, 'android/**']
     paths: ['android/**', '.github/workflows/android.yml']
-  pull_request:
-    paths: ['android/**', '.github/workflows/android.yml']
   workflow_dispatch:
 permissions:
   contents: read
@@ -14,6 +12,8 @@ concurrency:
 jobs:
   build:
     runs-on: ubuntu-latest
+    env:
+      NORTHDIARY_DEBUG_KEYSTORE: ${{ github.workspace }}/.android-signing/debug.keystore
     defaults:
       run:
         working-directory: android
@@ -29,15 +29,21 @@ jobs:
           log-accepted-android-sdk-licenses: false
       - uses: actions/cache@v4
         with:
-          path: ~/.android/debug.keystore
-          key: northdiary-android-debug-v1
+          path: ${{ env.NORTHDIARY_DEBUG_KEYSTORE }}
+          key: northdiary-android-debug-v2
+      - name: Prepare reusable debug signing key
+        run: |
+          mkdir -p "$(dirname "$NORTHDIARY_DEBUG_KEYSTORE")"
+          if [ ! -f "$NORTHDIARY_DEBUG_KEYSTORE" ]; then
+            keytool -genkeypair -keystore "$NORTHDIARY_DEBUG_KEYSTORE" -alias androiddebugkey -storepass android -keypass android -dname "CN=Android Debug,O=NorthDiary,C=CN" -keyalg RSA -validity 10000
+          fi
       - uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: '8.9'
       - run: gradle --no-daemon :app:testDebugUnitTest :app:lintDebug :app:assembleDebug :app:assembleDebugAndroidTest
       - uses: actions/upload-artifact@v4
         with:
-          name: NorthDiary-android-0.1.0-alpha
+          name: NorthDiary-android-0.1.1-alpha
           path: android/app/build/outputs/apk/debug/*.apk
       - uses: actions/upload-artifact@v4
         if: always()
@@ -51,7 +57,11 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        profile: [pixel_2, pixel_c]
+        include:
+          - profile: pixel_2
+            api: 34
+          - profile: pixel_c
+            api: 30
     defaults:
       run:
         working-directory: android
@@ -71,7 +81,7 @@ jobs:
           sudo udevadm trigger --name-match=kvm
       - uses: reactivecircus/android-emulator-runner@v2
         with:
-          api-level: 30
+          api-level: ${{ matrix.api }}
           arch: x86_64
           profile: ${{ matrix.profile }}
           working-directory: android
@@ -82,6 +92,7 @@ jobs:
             sleep 2
             mkdir -p screenshots
             adb exec-out screencap -p > screenshots/home.png
+            adb pull /sdcard/Pictures/NorthDiaryQA screenshots/
       - uses: actions/upload-artifact@v4
         if: always()
         with:

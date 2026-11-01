@@ -6,13 +6,18 @@ android {
         applicationId 'com.northcape.northdiary'
         minSdk 26
         targetSdk 35
-        versionCode 1
-        versionName '0.1.0-alpha'
+        versionCode 2
+        versionName '0.1.1-alpha'
         testInstrumentationRunner 'android.test.InstrumentationTestRunner'
     }
     compileOptions {
         sourceCompatibility JavaVersion.VERSION_17
         targetCompatibility JavaVersion.VERSION_17
+    }
+    signingConfigs {
+        debug {
+            if(System.getenv('NORTHDIARY_DEBUG_KEYSTORE'))storeFile file(System.getenv('NORTHDIARY_DEBUG_KEYSTORE'))
+        }
     }
     useLibrary 'android.test.runner'
     useLibrary 'android.test.base'

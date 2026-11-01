@@ -1,6 +1,15 @@
-# NorthDiary 安卓端 0.1.0-alpha
+# NorthDiary 安卓端 0.1.1-alpha
 
 原生 Android 应用，与 Windows 客户端并列放在本仓库。使用 Java 17、Android 原生视图和 SQLite，无运行时第三方依赖，不使用网页应用框架。
+
+## 0.1.1 界面与主题修复
+
+- 统一米色与红酒浅色、暮色酒红深色的圆角卡片、线条图标、胶囊筛选和底部导航。
+- 重排文章列表、折叠编辑整理区、人物卡片和分组设置；图片仍只显示文件名链接。
+- 主题在 attachBaseContext 中解析，避免 onCreate 内资源已加载后调用 applyOverrideConfiguration 引发崩溃；选择先落盘，再重建界面。
+- 新增真实主题选择器回归：深色/浅色/跟随系统多次切换、重新启动保持深色、检查实际资源颜色和数据库内容。
+- UI 截图仅使用自动测试生成的虚构记录。
+- 交付 APK 的构建增加调试密钥缓存。0.1.0 的初次调试构建未成功保存密钥，新 APK 可能无法覆盖旧版；遇到签名冲突时，先从旧版导出 .ndiary 备份，再卸载安装并恢复。缓存仍不替代正式发行签名。
 
 ## 已实现的初版代码
 
@@ -33,13 +42,13 @@ gradle :app:testDebugUnitTest :app:lintDebug :app:assembleDebug
 gradle :app:connectedDebugAndroidTest
 ```
 
-本轮源码工程尚未包含 Gradle wrapper；请使用 Gradle 8.9。仓库 Actions 的 **Android alpha** 流程自动配置工具链，生成 `NorthDiary-android-0.1.0-alpha` artifact，里面的 `app-debug.apk` 可安装。调试签名缓存失效时，后续 APK 可能无法直接覆盖安装；请先备份，正式发布前需配置持久发行签名。
+源码工程尚未包含 Gradle wrapper；请使用 Gradle 8.9。仓库 Actions 的 **Android alpha** 流程自动配置工具链，生成 `NorthDiary-android-0.1.1-alpha` artifact，里面的 `app-debug.apk` 可安装。调试签名缓存失效时，后续 APK 可能无法直接覆盖安装；请先备份，正式发布前需配置持久发行签名。
 
 ## 验证范围
 
 - JUnit：模糊日期规范化、闰年及非法输入。
 - Android instrumentation：真实 SQLite 保存回滚及重试、标签搜索、人物关联、时间线之外、回收站、失败编辑日志及原子文件恢复、桌面专属字段保留、备份往返、缺失附件及路径穿越拒绝。
-- 手机与平板 emulator 配置：pixel_2、pixel_c，API 30，验证编辑页的单栏/双栏选择及 Activity 重建后恢复未完成的日期输入。
+- 手机与平板 emulator 配置：pixel_2、pixel_c，手机 API 34 / 平板 API 30，验证编辑页的单栏/双栏选择及 Activity 重建后恢复未完成的日期输入。
 - 尚需用户真机验收：中文输入法、长文编辑、横竖屏与多窗口交互、图片外部查看器、系统文档选择器及跨端备份包。
 
 ## 初版限制

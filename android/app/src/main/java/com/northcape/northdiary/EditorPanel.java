@@ -24,49 +24,53 @@ final class EditorPanel extends ScrollView {
     EditorPanel(MainActivity host,DiaryStore store,Article article,boolean edit) {
         super(host);this.host=host;this.store=store;this.article=article;selectedPeople=new ArrayList<>(article.people);
         attachments=store.attachments(article.id);
-        setFillViewport(true);LinearLayout content=Ui.column(host);Ui.pad(content,20);addView(content);
+        setFillViewport(true);setVerticalScrollBarEnabled(false);LinearLayout content=Ui.column(host);Ui.pad(content,20);addView(content);
         LinearLayout actions=Ui.row(host);
-        actions.addView(Ui.button(host,"返回",host::backFromArticle));
+        actions.addView(Ui.quiet(host,"‹ 返回",host::backFromArticle));
+        View spacer=new View(host);actions.addView(spacer,new LinearLayout.LayoutParams(0,1,1));
         if(article.deleted) actions.addView(Ui.button(host,"恢复文章",()->host.restoreArticle(article.id)));
         else {
-            actions.addView(Ui.button(host,edit?"完成":"编辑",()->{if(edit)host.finishEditing();else host.editArticle(article);}));
-            actions.addView(Ui.button(host,"移入回收站",()->host.trashArticle(article.id)));
+            Button more=Ui.quiet(host,"更多",()->new AlertDialog.Builder(host).setItems(new String[]{"移入回收站"},(d,i)->host.trashArticle(article.id)).show());actions.addView(more);
+            actions.addView(Ui.primary(host,edit?"完成":"编辑",()->{if(edit)host.finishEditing();else host.editArticle(article);}));
         }
-        content.addView(Ui.horizontal(host,actions));
-        status=Ui.text(host,edit?"编辑中 · 停止输入后自动保存":"",13,R.color.muted);content.addView(status);
-        title=Ui.input(host,"标题",true);title.setText(article.title);title.setTextSize(24);title.setTypeface(null,Typeface.BOLD);
+        content.addView(actions);Ui.gap(content,12);
+        status=Ui.text(host,edit?"本地草稿 · 自动保存":"私人记忆 · 只读浏览",11,R.color.muted);content.addView(status);Ui.gap(content,14);
+        title=Ui.input(host,"标题",true);title.setText(article.title);title.setTextSize(26);title.setTypeface(Typeface.create("sans-serif-medium",0));title.setBackground(null);title.setPadding(0,Ui.dp(host,8),0,Ui.dp(host,12));
         date=Ui.input(host,"事件日期：2026 / 2026-11 / 2026-11-01",true);date.setText(article.date.replace("-未知-未知","").replace("-未知",""));
         tags=Ui.input(host,"标签，用中文或英文逗号分隔",true);tags.setText(TextUtils.join("，",article.tags));
         outside=new CheckBox(host);outside.setText("时间线之外 · 阅读时隐藏事件日期");outside.setChecked(article.outside);
         draft=new CheckBox(host);draft.setText("待确认文章");draft.setChecked(article.draft);
-        body=Ui.input(host,"写下想留下的记忆……",false);body.setGravity(Gravity.TOP);body.setMinLines(12);body.setTextSize(18);
+        body=Ui.input(host,"写下想留下的记忆……",false);body.setGravity(Gravity.TOP);body.setMinLines(12);body.setTextSize(17);body.setBackground(null);body.setPadding(0,Ui.dp(host,8),0,Ui.dp(host,20));body.setLineSpacing(Ui.dp(host,6),1.1f);
         body.setInputType(android.text.InputType.TYPE_CLASS_TEXT|android.text.InputType.TYPE_TEXT_FLAG_MULTI_LINE|android.text.InputType.TYPE_TEXT_FLAG_CAP_SENTENCES);
         body.setText(ArticleText.parse(host,article.html,attachments));
         peopleLabel=Ui.text(host,"",14,R.color.accent);refreshPeople();
         if(edit) {
-            content.addView(title);content.addView(outside);content.addView(date);date.setEnabled(!article.outside);
-            content.addView(draft);content.addView(tags);content.addView(peopleLabel);
-            content.addView(Ui.button(host,"选择关联人物",this::pickPeople));
+            content.addView(title);
+            LinearLayout meta=Ui.column(host);Ui.card(meta);meta.setVisibility(GONE);
+            Button organize=Ui.button(host,"日期、标签与人物  ⌄",()->meta.setVisibility(meta.getVisibility()==GONE?VISIBLE:GONE));content.addView(organize);Ui.gap(content,10);content.addView(meta);
+            meta.addView(outside);Ui.gap(meta,8);meta.addView(Ui.text(host,"事件日期",12,R.color.muted));Ui.gap(meta,6);meta.addView(date);date.setEnabled(!article.outside);
+            Ui.gap(meta,8);meta.addView(draft);Ui.gap(meta,8);meta.addView(Ui.text(host,"标签",12,R.color.muted));Ui.gap(meta,6);meta.addView(tags);Ui.gap(meta,12);meta.addView(peopleLabel);Ui.gap(meta,8);
+            meta.addView(Ui.button(host,"选择关联人物",this::pickPeople));Ui.gap(content,16);
             LinearLayout toolbar=Ui.row(host);
             toolbar.addView(Ui.button(host,"加粗",()->format(Typeface.BOLD)));
             toolbar.addView(Ui.button(host,"斜体",()->format(Typeface.ITALIC)));
             toolbar.addView(Ui.button(host,"添加图片链接",host::pickImage));content.addView(Ui.horizontal(host,toolbar));
-            content.addView(Ui.text(host,"选中文字后设置格式。图片以文件名链接显示；点击下方附件链接可查看。",12,R.color.muted));
-            content.addView(body);
+            Ui.gap(content,10);content.addView(body);
+            content.addView(Ui.text(host,"选中文字后设置格式。图片以文件名链接保存在文章中。",11,R.color.muted));Ui.gap(content,12);
             Ui.watch(title,host::editorChanged);Ui.watch(date,host::editorChanged);Ui.watch(tags,host::editorChanged);
             Ui.watch(body,()->{bodyChanged=true;host.editorChanged();});
             outside.setOnCheckedChangeListener((b,checked)->{date.setEnabled(!checked);host.editorChanged();});
             draft.setOnCheckedChangeListener((b,checked)->host.editorChanged());
         } else {
-            content.addView(Ui.heading(host,article.title));
+            TextView heading=Ui.heading(host,article.title);heading.setTextSize(27);content.addView(heading);Ui.gap(content,12);
             if(!article.outside)content.addView(Ui.text(host,PartialDate.label(article.date),14,R.color.muted));
             if(!article.tags.isEmpty())content.addView(Ui.text(host,"标签："+TextUtils.join(" · ",article.tags),14,R.color.accent));
-            content.addView(peopleLabel);
+            if(!selectedPeople.isEmpty()){Ui.gap(content,10);content.addView(peopleLabel);}Ui.gap(content,22);
             TextView reader=Ui.text(host,"",18,R.color.ink);reader.setText(ArticleText.parse(host,article.html,attachments));
             reader.setLineSpacing(Ui.dp(host,5),1.1f);reader.setMovementMethod(LinkMovementMethod.getInstance());content.addView(reader);
         }
         if(!attachments.isEmpty()) {
-            content.addView(Ui.text(host,"附件链接",14,R.color.muted));
+            Ui.section(content,"附件链接");
             for(Attachment a:attachments) {
                 TextView link=Ui.text(host,"↗ "+a.name,16,R.color.accent);
                 link.setMinHeight(Ui.dp(host,48));link.setOnClickListener(v->ArticleText.open(host,"ndiary-image:"+a.id));content.addView(link);

@@ -9,20 +9,29 @@ import static com.northcape.northdiary.Models.*;
 final class PeoplePanel extends LinearLayout {
     private final MainActivity host;
     private final DiaryStore store;
-    private final ListView list;
+    private final GridView list;
     private final EditText search;
     private List<Person> people=new ArrayList<>();
     PeoplePanel(MainActivity host,DiaryStore store) {
-        super(host);this.host=host;this.store=store;setOrientation(VERTICAL);Ui.pad(this,16);
-        addView(Ui.heading(host,"人物档案"));addView(Ui.button(host,"新建人物",()->edit(null)));
-        search=Ui.input(host,"搜索姓名或代号",true);addView(search);
-        list=new ListView(host);addView(list,new LayoutParams(-1,0,1));
+        super(host);this.host=host;this.store=store;setOrientation(VERTICAL);Ui.pad(this,20);
+        LinearLayout top=Ui.row(host);top.addView(Ui.heading(host,"人物档案"),new LayoutParams(0,-2,1));top.addView(Ui.primary(host,"＋ 新建",()->edit(null)));addView(top);
+        Ui.gap(this,6);addView(Ui.text(host,"有些故事，从一个名字开始。",13,R.color.muted));Ui.gap(this,20);
+        search=Ui.search(host,"搜索姓名或代号");addView(search);Ui.gap(this,18);
+        list=new GridView(host);list.setNumColumns(Math.max(1,Math.min(4,host.getResources().getConfiguration().screenWidthDp/260)));
+        list.setHorizontalSpacing(Ui.dp(host,14));list.setVerticalSpacing(Ui.dp(host,14));list.setStretchMode(GridView.STRETCH_COLUMN_WIDTH);list.setVerticalScrollBarEnabled(false);addView(list,new LayoutParams(-1,0,1));
         Ui.watch(search,this::refresh);list.setOnItemClickListener((p,v,i,id)->detail(people.get(i)));refresh();
     }
     private void refresh() {
-        people=store.people(search.getText().toString());List<String> names=new ArrayList<>();
-        for(Person p:people)names.add("◯  "+p.name+"\n    "+p.code);
-        list.setAdapter(new ArrayAdapter<>(host,android.R.layout.simple_list_item_1,names));
+        people=store.people(search.getText().toString());
+        list.setAdapter(new BaseAdapter(){
+            public int getCount(){return people.size();}public Person getItem(int i){return people.get(i);}public long getItemId(int i){return i;}
+            public View getView(int i,View old,ViewGroup parent){
+                Person p=getItem(i);LinearLayout card=Ui.column(host);Ui.card(card);card.setGravity(Gravity.CENTER);
+                TextView avatar=Ui.text(host,p.name.isEmpty()?"人":p.name.substring(0,p.name.offsetByCodePoints(0,1)),22,R.color.accent);avatar.setGravity(Gravity.CENTER);avatar.setBackground(Ui.surface(host,R.color.soft,32,false));
+                card.addView(avatar,new LayoutParams(Ui.dp(host,60),Ui.dp(host,60)));Ui.gap(card,14);
+                TextView name=Ui.text(host,p.name,18,R.color.ink);name.setMaxLines(1);name.setEllipsize(android.text.TextUtils.TruncateAt.END);card.addView(name);Ui.gap(card,6);card.addView(Ui.text(host,p.code,12,R.color.muted));Ui.gap(card,4);return card;
+            }
+        });
         TextView empty=Ui.text(host,"还没有人物档案，点击上方新建。",16,R.color.muted);
         if(list.getEmptyView()!=null)removeView(list.getEmptyView());addView(empty);list.setEmptyView(empty);
     }
