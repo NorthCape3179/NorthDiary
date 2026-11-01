@@ -13,6 +13,7 @@ final class UiTestCapture {
     static void save(Instrumentation instrumentation,String name)throws Exception{
         if(Build.VERSION.SDK_INT<29)return;
         instrumentation.waitForIdleSync();
+        Thread.sleep(500); // Allow popup dim layers and the next rendered frame to settle.
         Bitmap bitmap=instrumentation.getUiAutomation().takeScreenshot();
         if(bitmap==null)throw new IOException("无法采集验证截图");
         ContentResolver resolver=instrumentation.getTargetContext().getContentResolver();

@@ -19,7 +19,7 @@ final class Ui {
     static GradientDrawable surface(Context c,int color,float radius,boolean border){GradientDrawable d=new GradientDrawable();d.setColor(c.getColor(color));d.setCornerRadius(dp(c,radius));if(border)d.setStroke(dp(c,1),c.getColor(R.color.line));return d;}
     static Drawable ripple(Context c,int color,float radius,boolean border){return new RippleDrawable(ColorStateList.valueOf(c.getColor(R.color.ripple)),surface(c,color,radius,border),surface(c,R.color.ink,radius,false));}
     static Button button(Context c,String label,Runnable action){
-        Button b=new Button(c);b.setText(label);b.setTextSize(14);b.setAllCaps(false);b.setTypeface(Typeface.create("sans-serif-medium",0));
+        Button b=new Button(c);b.setText(label);b.setTextSize(14);b.setAllCaps(false);b.setTypeface(Typeface.create("sans-serif-medium",Typeface.NORMAL));
         b.setTextColor(c.getColor(R.color.accent));b.setBackground(ripple(c,R.color.soft,14,false));b.setStateListAnimator(null);
         b.setMinWidth(0);b.setMinimumWidth(0);b.setMinHeight(dp(c,44));b.setMinimumHeight(dp(c,44));b.setPadding(dp(c,14),dp(c,8),dp(c,14),dp(c,8));
         b.setOnClickListener(v->action.run());return b;
@@ -61,7 +61,7 @@ final class Ui {
         for(int i=0;i<3;i++){
             final int tab=i;boolean active=i==selected;LinearLayout item=column(c);item.setGravity(Gravity.CENTER);item.setPadding(0,dp(c,8),0,dp(c,8));
             item.setBackground(ripple(c,active?R.color.soft:R.color.card,18,false));item.addView(new ArchiveIcon(c,icons[i],active?R.color.accent:R.color.muted,22));gap(item,4);
-            item.addView(text(c,labels[i],11,active?R.color.accent:R.color.muted));item.setOnClickListener(v->click.accept(tab));item.setFocusable(true);item.setContentDescription(labels[i]);item.setSelected(active);
+            TextView caption=text(c,labels[i],11,active?R.color.accent:R.color.muted);caption.setGravity(Gravity.CENTER);item.addView(caption);item.setOnClickListener(v->click.accept(tab));item.setFocusable(true);item.setContentDescription(labels[i]);item.setSelected(active);
             nav.addView(item,new LinearLayout.LayoutParams(0,-2,1));
         }return nav;
     }

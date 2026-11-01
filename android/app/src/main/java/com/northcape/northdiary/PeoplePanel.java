@@ -17,7 +17,7 @@ final class PeoplePanel extends LinearLayout {
         LinearLayout top=Ui.row(host);top.addView(Ui.heading(host,"人物档案"),new LayoutParams(0,-2,1));top.addView(Ui.primary(host,"＋ 新建",()->edit(null)));addView(top);
         Ui.gap(this,6);addView(Ui.text(host,"有些故事，从一个名字开始。",13,R.color.muted));Ui.gap(this,20);
         search=Ui.search(host,"搜索姓名或代号");addView(search);Ui.gap(this,18);
-        list=new GridView(host);list.setNumColumns(Math.max(1,Math.min(4,host.getResources().getConfiguration().screenWidthDp/260)));
+        list=new GridView(host);list.setNumColumns(Math.max(1,Math.min(4,host.getResources().getConfiguration().screenWidthDp/180)));
         list.setHorizontalSpacing(Ui.dp(host,14));list.setVerticalSpacing(Ui.dp(host,14));list.setStretchMode(GridView.STRETCH_COLUMN_WIDTH);list.setVerticalScrollBarEnabled(false);addView(list,new LayoutParams(-1,0,1));
         Ui.watch(search,this::refresh);list.setOnItemClickListener((p,v,i,id)->detail(people.get(i)));refresh();
     }

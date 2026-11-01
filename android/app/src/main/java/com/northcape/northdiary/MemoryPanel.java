@@ -48,7 +48,7 @@ final class MemoryPanel extends LinearLayout {
             public View getView(int i,View recycled,ViewGroup parent){
                 Article a=getItem(i);LinearLayout card=Ui.column(host);Ui.card(card);
                 String date=host.space==1?"时间线之外":PartialDate.label(a.date);TextView meta=Ui.text(host,date,11,R.color.accent);meta.setLetterSpacing(.04f);card.addView(meta);Ui.gap(card,9);
-                TextView title=Ui.text(host,a.title,18,R.color.ink);title.setTypeface(Typeface.create("sans-serif-medium",0));title.setMaxLines(2);title.setEllipsize(TextUtils.TruncateAt.END);card.addView(title);Ui.gap(card,8);
+                TextView title=Ui.text(host,a.title,18,R.color.ink);title.setTypeface(Typeface.create("sans-serif-medium",Typeface.NORMAL));title.setMaxLines(2);title.setEllipsize(TextUtils.TruncateAt.END);card.addView(title);Ui.gap(card,8);
                 TextView summary=Ui.text(host,a.text.isEmpty()?"一段尚未写完的记忆":a.text.replace('\n',' '),13,R.color.muted);summary.setMaxLines(2);summary.setEllipsize(TextUtils.TruncateAt.END);card.addView(summary);
                 return card;
             }

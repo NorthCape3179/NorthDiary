@@ -53,7 +53,7 @@ public final class MainActivity extends Activity {
     }
     private void build(Article supplied) {
         editor=null;memories=null;
-        root=Ui.column(this);root.setBackgroundColor(getColor(R.color.paper));
+        root=Ui.column(this);root.setBackgroundColor(getColor(R.color.paper));root.setFocusableInTouchMode(true);
         if(Build.VERSION.SDK_INT>=30)root.setOnApplyWindowInsetsListener((v,insets)->{
             android.graphics.Insets safe=insets.getInsets(WindowInsets.Type.systemBars()|WindowInsets.Type.displayCutout()|WindowInsets.Type.ime());
             v.setPadding(safe.left,safe.top,safe.right,safe.bottom);return insets;
@@ -88,7 +88,7 @@ public final class MainActivity extends Activity {
         }
         FrameLayout footer=new FrameLayout(this);footer.setPadding(Ui.dp(this,16),Ui.dp(this,10),Ui.dp(this,16),Ui.dp(this,10));
         FrameLayout.LayoutParams nav=new FrameLayout.LayoutParams(Math.min(Ui.dp(this,540),Ui.dp(this,getResources().getConfiguration().screenWidthDp-32)),-2,Gravity.CENTER);
-        footer.addView(Ui.navigation(this,tab,this::navigate),nav);root.addView(footer);
+        footer.addView(Ui.navigation(this,tab,this::navigate),nav);root.addView(footer);root.requestFocus();
     }
     private void buildList() {
         memories=new MemoryPanel(this,store);workspace.addView(memories,new LinearLayout.LayoutParams(wide?Ui.dp(this,360):-1,-1));

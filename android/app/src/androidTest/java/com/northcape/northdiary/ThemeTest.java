@@ -59,7 +59,7 @@ public class ThemeTest extends ActivityInstrumentationTestCase2<MainActivity> {
         try(DiaryStore store=new DiaryStore(current,testRoot)){assertEquals(sample.title,store.get(sample.id).title);}
     }
     public void testThemePickerRecreationAndColdLaunch()throws Throwable {
-        current=getActivity();getInstrumentation().waitForIdleSync();UiTestCapture.save(getInstrumentation(),"01-home-light");
+        current=getActivity();getInstrumentation().waitForIdleSync();Thread.sleep(3500);UiTestCapture.save(getInstrumentation(),"01-home-light");
         runTestOnUiThread(()->current.openArticle(sample.id,true));getInstrumentation().waitForIdleSync();UiTestCapture.save(getInstrumentation(),"02-editor-light");
         runTestOnUiThread(()->current.backFromArticle());getInstrumentation().waitForIdleSync();clickText("设置");choose(2,"dark");
         UiTestCapture.save(getInstrumentation(),"03-settings-dark");

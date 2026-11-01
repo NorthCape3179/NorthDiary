@@ -33,9 +33,12 @@ final class EditorPanel extends ScrollView {
             Button more=Ui.quiet(host,"更多",()->new AlertDialog.Builder(host).setItems(new String[]{"移入回收站"},(d,i)->host.trashArticle(article.id)).show());actions.addView(more);
             actions.addView(Ui.primary(host,edit?"完成":"编辑",()->{if(edit)host.finishEditing();else host.editArticle(article);}));
         }
+        for(int i=0;i<actions.getChildCount()-1;i++){
+            LinearLayout.LayoutParams p=(LinearLayout.LayoutParams)actions.getChildAt(i).getLayoutParams();p.rightMargin=Ui.dp(host,6);actions.getChildAt(i).setLayoutParams(p);
+        }
         content.addView(actions);Ui.gap(content,12);
         status=Ui.text(host,edit?"本地草稿 · 自动保存":"私人记忆 · 只读浏览",11,R.color.muted);content.addView(status);Ui.gap(content,14);
-        title=Ui.input(host,"标题",true);title.setText(article.title);title.setTextSize(26);title.setTypeface(Typeface.create("sans-serif-medium",0));title.setBackground(null);title.setPadding(0,Ui.dp(host,8),0,Ui.dp(host,12));
+        title=Ui.input(host,"标题",true);title.setText(article.title);title.setTextSize(26);title.setTypeface(Typeface.create("sans-serif-medium",Typeface.NORMAL));title.setBackground(null);title.setPadding(0,Ui.dp(host,8),0,Ui.dp(host,12));
         date=Ui.input(host,"事件日期：2026 / 2026-11 / 2026-11-01",true);date.setText(article.date.replace("-未知-未知","").replace("-未知",""));
         tags=Ui.input(host,"标签，用中文或英文逗号分隔",true);tags.setText(TextUtils.join("，",article.tags));
         outside=new CheckBox(host);outside.setText("时间线之外 · 阅读时隐藏事件日期");outside.setChecked(article.outside);
@@ -54,7 +57,11 @@ final class EditorPanel extends ScrollView {
             LinearLayout toolbar=Ui.row(host);
             toolbar.addView(Ui.button(host,"加粗",()->format(Typeface.BOLD)));
             toolbar.addView(Ui.button(host,"斜体",()->format(Typeface.ITALIC)));
-            toolbar.addView(Ui.button(host,"添加图片链接",host::pickImage));content.addView(Ui.horizontal(host,toolbar));
+            toolbar.addView(Ui.button(host,"添加图片链接",host::pickImage));
+            for(int i=0;i<toolbar.getChildCount()-1;i++){
+                LinearLayout.LayoutParams p=(LinearLayout.LayoutParams)toolbar.getChildAt(i).getLayoutParams();p.rightMargin=Ui.dp(host,8);toolbar.getChildAt(i).setLayoutParams(p);
+            }
+            content.addView(Ui.horizontal(host,toolbar));
             Ui.gap(content,10);content.addView(body);
             content.addView(Ui.text(host,"选中文字后设置格式。图片以文件名链接保存在文章中。",11,R.color.muted));Ui.gap(content,12);
             Ui.watch(title,host::editorChanged);Ui.watch(date,host::editorChanged);Ui.watch(tags,host::editorChanged);
