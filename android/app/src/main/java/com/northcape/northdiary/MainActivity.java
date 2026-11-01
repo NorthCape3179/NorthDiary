@@ -53,7 +53,7 @@ public final class MainActivity extends Activity {
     }
     private void build(Article supplied) {
         editor=null;memories=null;
-        root=Ui.column(this);root.setBackgroundColor(getColor(R.color.paper));root.setFocusableInTouchMode(true);
+        root=Ui.column(this);root.setBackgroundColor(getColor(R.color.paper));root.setFocusableInTouchMode(true);root.setDefaultFocusHighlightEnabled(false);
         if(Build.VERSION.SDK_INT>=30)root.setOnApplyWindowInsetsListener((v,insets)->{
             android.graphics.Insets safe=insets.getInsets(WindowInsets.Type.systemBars()|WindowInsets.Type.displayCutout()|WindowInsets.Type.ime());
             v.setPadding(safe.left,safe.top,safe.right,safe.bottom);return insets;

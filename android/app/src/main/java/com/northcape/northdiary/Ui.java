@@ -53,7 +53,7 @@ final class Ui {
         box.addView(icon,new LinearLayout.LayoutParams(dp(c,80),dp(c,80)));gap(box,22);
         TextView h=heading(c,title);h.setTextSize(20);h.setGravity(Gravity.CENTER);box.addView(h);gap(box,10);
         TextView hint=text(c,detail,14,R.color.muted);hint.setGravity(Gravity.CENTER);box.addView(hint);gap(box,22);
-        if(action!=null)box.addView(primary(c,action,click));return box;
+        if(action!=null)box.addView(primary(c,action,click),new LinearLayout.LayoutParams(-2,-2));return box;
     }
     static View navigation(Context c,int selected,java.util.function.IntConsumer click){
         LinearLayout nav=row(c);nav.setBackground(surface(c,R.color.card,24,true));pad(nav,5);
