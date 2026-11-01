@@ -32,6 +32,17 @@ public class StorageTest extends AndroidTestCase {
         try{store.save(a);fail();}catch(IllegalArgumentException expected){}
         assertEquals("正在输入",drafts.read().date);assertEquals("中文正文",drafts.read().text);
     }
+    public void testDesktopOnlyFieldsSurviveEditing() {
+        Article a=article();store.save(a);
+        store.getWritableDatabase().execSQL("INSERT INTO categories(id,name) VALUES ('category','分类')");
+        store.getWritableDatabase().execSQL("INSERT INTO article_categories VALUES (?, 'category')",new Object[]{a.id});
+        store.getWritableDatabase().execSQL("INSERT INTO article_temporary_tags VALUES (?, '临时标签')",new Object[]{a.id});
+        store.getWritableDatabase().execSQL("UPDATE articles SET pinned=1,sort_order=42 WHERE id=?",new Object[]{a.id});
+        a.title="手机修改";store.save(a);
+        assertEquals("分类",store.strings("SELECT name FROM categories JOIN article_categories ON category_id=categories.id WHERE article_id=?",a.id).get(0));
+        assertEquals("临时标签",store.strings("SELECT name FROM article_temporary_tags WHERE article_id=?",a.id).get(0));
+        assertEquals("42",store.strings("SELECT sort_order FROM articles WHERE id=? AND pinned=1",a.id).get(0));
+    }
     public void testBackupRoundTripWithImageAndPeople()throws Exception {
         Article a=article();store.save(a);Attachment image=new Attachment();image.id=UUID.randomUUID().toString();image.name="图片.png";
         image.path="attachments/"+image.id+".png";image.mime="image/png";

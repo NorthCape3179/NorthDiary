@@ -28,10 +28,15 @@ final class ArchiveService {
                     zip.putNextEntry(new ZipEntry("manifest.json"));
                     zip.write("{\"format\":\"NorthDiary\",\"version\":1}".getBytes(StandardCharsets.UTF_8)); zip.closeEntry();
                     long total=add(zip,snapshot,DiaryStore.DB,LIMIT);
-                    File[] files=new File(store.root,"attachments").listFiles();
-                    if(files==null) throw new IOException("无法读取附件目录");
-                    if(files.length>9998) throw new IOException("附件数量超过初版限制");
-                    for(File f:files) if(f.isFile()) total+=add(zip,f,"attachments/"+f.getName(),LIMIT-total);
+                    try(SQLiteDatabase data=SQLiteDatabase.openDatabase(snapshot.getPath(),null,SQLiteDatabase.OPEN_READONLY);
+                        Cursor paths=data.rawQuery("SELECT relative_path FROM attachments ORDER BY relative_path",null)) {
+                        if(paths.getCount()>9998)throw new IOException("附件数量超过初版限制");
+                        while(paths.moveToNext()) {
+                            String path=paths.getString(0);File f=attachmentFile(store.root,path);
+                            if(!f.isFile())throw new IOException("附件缺失，未导出不完整备份");
+                            total+=add(zip,f,path,LIMIT-total);
+                        }
+                    }
                 }
             }
             return archive;

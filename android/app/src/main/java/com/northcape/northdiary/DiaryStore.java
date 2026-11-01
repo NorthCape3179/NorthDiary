@@ -167,12 +167,37 @@ final class DiaryStore extends SQLiteOpenHelper {
         getWritableDatabase().insertOrThrow("attachments",null,v);
     }
     synchronized void snapshot(File destination) throws IOException {
-        // Also handles devices that enable compatibility WAL by default.
-        try(Cursor c=getWritableDatabase().rawQuery("PRAGMA wal_checkpoint(TRUNCATE)",null)) {
-            if(c.moveToFirst()&&c.getInt(0)!=0)throw new IOException("数据库正忙，请稍后导出备份");
-        }
-        // All application writes and backup share this monitor; providers only read.
-        try (InputStream in=new FileInputStream(new File(root,DB)); OutputStream out=new FileOutputStream(destination)) { copy(in,out,200L*1024*1024); }
+        // Logical snapshot inside one source transaction, independent of WAL and Activity instances.
+        SQLiteDatabase source=getReadableDatabase();source.beginTransaction();
+        try(SQLiteDatabase target=SQLiteDatabase.openOrCreateDatabase(destination,null)) {
+            target.beginTransaction();
+            try {
+                List<String> names=new ArrayList<>();
+                try(Cursor tables=source.rawQuery("SELECT name,sql FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%' AND name!='android_metadata'",null)) {
+                    while(tables.moveToNext()){names.add(tables.getString(0));target.execSQL(tables.getString(1));}
+                }
+                for(String table:names)try(Cursor rows=source.rawQuery("SELECT * FROM \""+table.replace("\"","\"\"")+"\"",null)) {
+                    while(rows.moveToNext()) {
+                        ContentValues row=new ContentValues();
+                        for(int i=0;i<rows.getColumnCount();i++) {
+                            String name=rows.getColumnName(i);
+                            switch(rows.getType(i)) {
+                                case Cursor.FIELD_TYPE_NULL:row.putNull(name);break;
+                                case Cursor.FIELD_TYPE_INTEGER:row.put(name,rows.getLong(i));break;
+                                case Cursor.FIELD_TYPE_FLOAT:row.put(name,rows.getDouble(i));break;
+                                case Cursor.FIELD_TYPE_BLOB:row.put(name,rows.getBlob(i));break;
+                                default:row.put(name,rows.getString(i));
+                            }
+                        }
+                        target.insertOrThrow(table,null,row);
+                    }
+                }
+                try(Cursor indexes=source.rawQuery("SELECT sql FROM sqlite_master WHERE type='index' AND sql IS NOT NULL",null)) {while(indexes.moveToNext())target.execSQL(indexes.getString(0));}
+                target.setVersion(source.getVersion());target.setTransactionSuccessful();
+            }finally{target.endTransaction();}
+            source.setTransactionSuccessful();
+        }catch(RuntimeException e){throw new IOException("无法创建一致的数据库快照",e);}
+        finally{source.endTransaction();}
     }
     static byte[] readBytes(InputStream in,long limit) throws IOException { ByteArrayOutputStream out=new ByteArrayOutputStream(); copy(in,out,limit); return out.toByteArray(); }
     static long copy(InputStream in,OutputStream out,long limit) throws IOException {

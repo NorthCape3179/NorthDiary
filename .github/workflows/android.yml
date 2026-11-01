@@ -75,9 +75,13 @@ jobs:
           arch: x86_64
           profile: ${{ matrix.profile }}
           working-directory: android
-          script: gradle --no-daemon :app:connectedDebugAndroidTest
+          script: |
+            gradle --no-daemon :app:connectedDebugAndroidTest
+            adb pull /sdcard/Android/data/com.northcape.northdiary/files/screenshots screenshots
       - uses: actions/upload-artifact@v4
         if: always()
         with:
           name: device-reports-${{ matrix.profile }}
-          path: android/app/build/reports/androidTests/
+          path: |
+            android/app/build/reports/androidTests/
+            android/screenshots/
