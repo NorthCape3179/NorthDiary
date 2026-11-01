@@ -234,7 +234,8 @@ class MainWindow(QMainWindow):
         paper.setObjectName('paper')
         center = QVBoxLayout(paper)
         self.center_layout = center
-        center.setContentsMargins(30, 12, 30, 20)
+        # Keep the scrollbar close to the paper edge; body padding preserves the text gutter.
+        center.setContentsMargins(30, 12, 8, 20)
         tool_band = QWidget()
         band_layout = QVBoxLayout(tool_band)
         band_layout.setContentsMargins(0, 0, 0, 0)
@@ -322,6 +323,7 @@ class MainWindow(QMainWindow):
         self.editor = ArticleEditor()
         self.editor.setObjectName('articleEditor')
         self.editor.setStyleSheet('QTextEdit#articleEditor { background: transparent; }')
+        self.editor.setViewportMargins(0, 0, 22, 0)
         self.editor.viewport().setAutoFillBackground(False)
         self.editor.viewport().setStyleSheet('background: transparent;')
         self.editor.imageActivated.connect(self.open_image)

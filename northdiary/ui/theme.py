@@ -34,6 +34,13 @@ QListWidget { background: transparent; border: none; outline: none; }
 QListWidget::item { border-radius: 7px; padding: 12px 8px; margin: 2px 0; }
 QListWidget::item:selected { background: #d5e1d0; color: #234735; }
 QListWidget::item:hover { background: #e0e8db; }
+QWidget#qt_scrollarea_vcontainer { background: transparent; }
+QScrollBar:vertical { background: transparent; width: 8px; margin: 4px 0; border: none; }
+QScrollBar::handle:vertical { background: #c5d2c5; min-height: 36px; border-radius: 4px; }
+QScrollBar::handle:vertical:hover { background: #a1b3a4; }
+QScrollBar::handle:vertical:pressed { background: #788b7c; }
+QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical { height: 0; border: none; background: transparent; }
+QScrollBar::add-page:vertical, QScrollBar::sub-page:vertical { background: transparent; }
 QSplitter::handle { background: transparent; width: 9px; }
 QStatusBar { color: #708075; background: #f6f5f1; }
 QMenuBar, QMenu { background: #f6f5f1; }
