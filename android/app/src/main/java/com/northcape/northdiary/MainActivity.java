@@ -170,6 +170,11 @@ public final class MainActivity extends Activity {
         content.addView(Ui.button(this,"从完整备份恢复",()->new AlertDialog.Builder(this).setTitle("恢复完整档案")
             .setMessage("恢复会切换到备份中的完整档案，不合并记录。当前档案会保留一份恢复前快照。仅支持 schema v7 的 .ndiary 完整备份。")
             .setPositiveButton("选择备份",(d,w)->chooseDocument(102,"*/*")).setNegativeButton("取消",null).show()));
+        String previous=getSharedPreferences("archive",0).getString("previous",null);
+        if(previous!=null)content.addView(Ui.button(this,"切回上一次恢复前的档案",()->new AlertDialog.Builder(this)
+            .setMessage("切换到上一次恢复前的完整档案？当前档案也会保留，可再次切换。")
+            .setPositiveButton("切换",(d,w)->work("检查档案",()->{File old=new File(getFilesDir(),previous);ArchiveService.validate(old);return old;},this::activateRoot))
+            .setNegativeButton("取消",null).show()));
         content.addView(Ui.text(this,"初版限制：完整备份解压后最多 200 MiB；单张图片最多 32 MiB。\nGitHub 文章包交换、EPUB、随机回忆和自定义人物头像尚未实现。\n手机与平板支持横竖屏及分屏，宽度足够时显示左右两栏。",14,R.color.muted));
         content.addView(Ui.button(this,"项目源码与许可证",()->ArticleText.open(this,"https://github.com/NorthCape3179/NorthDiary")));
         return Ui.scroll(this,content);
@@ -198,15 +203,7 @@ public final class MainActivity extends Activity {
             });
         } else if(code==102)work("检查并恢复备份",()->{
             InputStream in=getContentResolver().openInputStream(uri);if(in==null)throw new IOException("无法读取备份");return ArchiveService.stage(this,in);
-        },stage->{
-            String old=store.root.getName();
-            DiaryStore prepared=new DiaryStore(this,stage);
-            if(!getSharedPreferences("archive",0).edit().putString("active",stage.getName()).putString("previous",old).commit()){
-                prepared.close();throw new IOException("无法切换档案，当前档案保持不变");
-            }
-            store.close();store=prepared;drafts=new DraftStore(stage);activeId=null;editing=false;dirty=false;tab=0;space=0;query="";tag="";build(null);
-            Toast.makeText(this,"档案恢复完成，恢复前的数据已保留",Toast.LENGTH_LONG).show();
-        });
+        },this::activateRoot);
         else if(code==103&&exportPath!=null) {
             File source=new File(exportPath);exportPath=null;
             work("写入备份",()->{
@@ -215,6 +212,14 @@ public final class MainActivity extends Activity {
                 }finally{source.delete();}return true;
             },ok->Toast.makeText(this,"备份已导出",Toast.LENGTH_LONG).show());
         }
+    }
+    private void activateRoot(File stage)throws Exception {
+        String old=store.root.getName();DiaryStore prepared=new DiaryStore(this,stage);
+        if(!getSharedPreferences("archive",0).edit().putString("active",stage.getName()).putString("previous",old).commit()){
+            prepared.close();throw new IOException("无法切换档案，当前档案保持不变");
+        }
+        store.close();store=prepared;drafts=new DraftStore(stage);activeId=null;editing=false;dirty=false;tab=0;space=0;query="";tag="";build(null);
+        Toast.makeText(this,"档案切换完成，切换前的数据已保留",Toast.LENGTH_LONG).show();
     }
     private Attachment copyImage(Uri uri,String article) throws Exception {
         Attachment a=new Attachment();a.id=UUID.randomUUID().toString();a.name="图片";

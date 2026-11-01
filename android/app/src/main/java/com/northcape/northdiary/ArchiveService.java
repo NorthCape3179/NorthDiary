@@ -78,7 +78,10 @@ final class ArchiveService {
             try(Cursor c=db.rawQuery("PRAGMA foreign_key_check",null)) { if(c.moveToFirst())throw new IOException("备份的关联记录不完整"); }
             try(Cursor c=db.rawQuery("SELECT 1 FROM sqlite_master WHERE type IN ('trigger','view')",null)) { if(c.moveToFirst())throw new IOException("备份含非标准数据库对象"); }
             String[] tables={"articles","categories","tags","article_categories","article_tags","attachments","article_temporary_tags","people","article_people","relationship_tags","person_relationship_tags","person_temporary_relationship_tags","outside_articles","draft_articles"};
-            for(String name:tables) try(Cursor c=db.rawQuery("SELECT * FROM "+name+" LIMIT 0",null)) { if(c.getColumnCount()==0)throw new IOException("缺少数据表："+name); }
+            String[] columns={"id,title,diary_date,body_html,body_text,created_at,updated_at,deleted_at,pinned,sort_order","id,name,parent_id","id,name","article_id,category_id","article_id,tag_id","id,article_id,name,relative_path,mime_type,caption,position","article_id,name","id,name,code,birth_date,met_date,met_how,pinned,starred","article_id,person_id","name","person_id,name","person_id,name","article_id","article_id"};
+            for(int i=0;i<tables.length;i++) try(Cursor c=db.rawQuery("SELECT * FROM "+tables[i]+" LIMIT 0",null)) {
+                if(!Arrays.equals(c.getColumnNames(),columns[i].split(",")))throw new IOException("数据表结构不受支持："+tables[i]);
+            }
             try(Cursor c=db.rawQuery("SELECT diary_date FROM articles WHERE id NOT IN (SELECT article_id FROM outside_articles)",null)) {
                 while(c.moveToNext()) PartialDate.normalize(c.getString(0));
             }
