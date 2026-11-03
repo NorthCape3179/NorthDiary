@@ -3,7 +3,7 @@ from contextlib import closing
 from uuid import uuid4
 from pathlib import Path
 
-SCHEMA_VERSION = 7
+SCHEMA_VERSION = 9
 SCHEMA = '''
 BEGIN IMMEDIATE;
 CREATE TABLE articles (
@@ -169,6 +169,66 @@ class Database:
                         article_id TEXT PRIMARY KEY REFERENCES articles(id) ON DELETE CASCADE
                     );
                     PRAGMA user_version=7;
+                    COMMIT;''')
+            except Exception:
+                self.connection.rollback()
+                self.connection.close()
+                raise
+        if version < 8:
+            try:
+                if version == 7:
+                    backups = self.root / 'backups'
+                    backups.mkdir(exist_ok=True)
+                    with closing(sqlite3.connect(backups / f'before-v8-{uuid4().hex}.sqlite3')) as snapshot:
+                        self.connection.backup(snapshot)
+                self.connection.executescript('''BEGIN IMMEDIATE;
+                    CREATE TABLE ai_conversations (
+                        id TEXT PRIMARY KEY, mode TEXT NOT NULL, title TEXT NOT NULL,
+                        article_ids TEXT NOT NULL, source_fingerprint TEXT NOT NULL DEFAULT '',
+                        created_at TEXT NOT NULL, updated_at TEXT NOT NULL
+                    );
+                    CREATE TABLE ai_turns (
+                        id TEXT PRIMARY KEY,
+                        conversation_id TEXT NOT NULL REFERENCES ai_conversations(id) ON DELETE CASCADE,
+                        instruction TEXT NOT NULL, response TEXT NOT NULL DEFAULT '',
+                        model TEXT NOT NULL, response_model TEXT NOT NULL DEFAULT '',
+                        status TEXT NOT NULL CHECK(status IN ('running','complete','stopped','error','incomplete','interrupted')),
+                        article_ids TEXT NOT NULL, created_at TEXT NOT NULL, updated_at TEXT NOT NULL,
+                        prompt_tokens INTEGER, completion_tokens INTEGER, cache_hit_tokens INTEGER,
+                        cost_low_usd REAL, cost_high_usd REAL,
+                        error_text TEXT NOT NULL DEFAULT '', finish_reason TEXT
+                    );
+                    CREATE INDEX ai_turns_conversation ON ai_turns(conversation_id,created_at);
+                    PRAGMA user_version=8;
+                    COMMIT;''')
+            except Exception:
+                self.connection.rollback()
+                self.connection.close()
+                raise
+        if version < 9:
+            try:
+                if version == 8:
+                    backups = self.root / 'backups'
+                    backups.mkdir(exist_ok=True)
+                    with closing(sqlite3.connect(backups / f'before-v9-{uuid4().hex}.sqlite3')) as snapshot:
+                        self.connection.backup(snapshot)
+                self.connection.executescript('''BEGIN IMMEDIATE;
+                    CREATE TABLE ai_works (
+                        id TEXT PRIMARY KEY, title TEXT NOT NULL, category TEXT NOT NULL,
+                        created_at TEXT NOT NULL, updated_at TEXT NOT NULL
+                    );
+                    CREATE TABLE ai_work_versions (
+                        id TEXT PRIMARY KEY,
+                        work_id TEXT NOT NULL REFERENCES ai_works(id) ON DELETE CASCADE,
+                        number INTEGER NOT NULL, title TEXT NOT NULL, category TEXT NOT NULL,
+                        body_html TEXT NOT NULL, body_text TEXT NOT NULL,
+                        model TEXT NOT NULL DEFAULT '', generated_at TEXT NOT NULL DEFAULT '',
+                        created_at TEXT NOT NULL, origin_turn_id TEXT, conversation_id TEXT,
+                        sources_json TEXT NOT NULL DEFAULT '[]', note TEXT NOT NULL DEFAULT '',
+                        UNIQUE(work_id,number)
+                    );
+                    CREATE INDEX ai_work_origin ON ai_work_versions(origin_turn_id);
+                    PRAGMA user_version=9;
                     COMMIT;''')
             except Exception:
                 self.connection.rollback()

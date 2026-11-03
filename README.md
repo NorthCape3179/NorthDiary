@@ -6,21 +6,11 @@
 
 NorthDiary 是一款 Windows 本地图文日记与个人文集软件。用文章保存日常，用时间线整理往事，用人物档案串联故事，让零散的记忆逐渐形成属于自己的个人档案。
 
-[下载安装 v1.7.0](https://github.com/NorthCape3179/NorthDiary/releases/tag/v1.7.0) · [v1.7.0 更新日志](docs/RELEASE-v1.7.0.md) · [开源许可证](LICENSE)
+[下载 v1.8.0 脚本版](https://github.com/NorthCape3179/NorthDiary/releases/tag/v1.8.0) · [v1.8.0 更新日志](docs/RELEASE-v1.8.0.md) · [开源许可证](LICENSE)
 
-## 源码预发布 v1.7.5-beta
+## 运行 v1.8.0
 
-[发布页与源码下载](https://github.com/NorthCape3179/NorthDiary/releases/tag/v1.7.5-beta) · [更新日志总结](docs/RELEASE-v1.7.5-beta.md)
-
-新增时间线之外、待确认文章、分类标签多选筛选、数据位置管理与段落居中。本次只发布源码，不提供新版 EXE；下方安装说明仍适用于稳定版 v1.7.0。数据库升级至 schema v7，更新前请备份。
-
-## 下载与安装
-
-1. 打开 [Releases 发布页](https://github.com/NorthCape3179/NorthDiary/releases/tag/v1.7.0)，下载 **`NorthDiary-Setup-v1.7.0.exe`**。
-2. 双击安装，可选择程序安装位置及是否创建桌面快捷方式。
-3. 启动 NorthDiary，开始记录。程序默认沿用已有的默认数据目录；首次没有默认数据库时，可选择已有日记目录或新的空目录。
-
-安装版面向 Windows 10 / 11 x64，无需另行安装 Python。安装包约 65 MiB，目前未数字签名，Windows 可能显示“未知发布者”。发布页同时提供源码 ZIP 和 SHA256 校验文件。
+Windows 10 / 11 x64，需安装 Python 3.11–3.13。下载并解压发布页的脚本版 ZIP，双击 `start.cmd`。首次启动会创建虚拟环境并联网安装依赖。升级旧目录时，请用该目录的 Python 执行 `.venv\Scripts\python.exe -m pip install -r requirements.txt`，然后运行脚本。v1.8.0 提供源码和脚本版。
 
 ## 软件特色
 

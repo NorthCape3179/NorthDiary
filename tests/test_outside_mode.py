@@ -97,14 +97,15 @@ class OutsideModeTests(unittest.TestCase):
     def test_v5_migration_keeps_existing_articles_inside_and_backs_up(self):
         path=self.root/'v5-data';old=Database(path);repo=ArticleRepository(old);key=repo.create().id
         with old.connection:
-            old.connection.executescript('DROP TABLE outside_articles; PRAGMA user_version=5;')
+            old.connection.executescript('DROP TABLE ai_work_versions; DROP TABLE ai_works; DROP TABLE ai_turns; DROP TABLE ai_conversations; DROP TABLE outside_articles; PRAGMA user_version=5;')
         old.close()
         migrated=Database(path)
         try:
             repo=ArticleRepository(migrated)
             self.assertEqual([a.id for a in repo.list()],[key])
             self.assertFalse(repo.is_outside(key))
-            self.assertEqual(migrated.connection.execute('PRAGMA user_version').fetchone()[0],7)
+            from northdiary.storage.database import SCHEMA_VERSION
+            self.assertEqual(migrated.connection.execute('PRAGMA user_version').fetchone()[0], SCHEMA_VERSION)
             snapshots=list((path/'backups').glob('before-v6-*.sqlite3'))
             self.assertTrue(snapshots)
         finally:migrated.close()

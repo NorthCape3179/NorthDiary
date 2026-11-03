@@ -2,7 +2,10 @@ import argparse
 import sys
 from pathlib import Path
 
-from PySide6.QtCore import QLockFile, QStandardPaths
+from northdiary.bootstrap import configure_runtime
+configure_runtime()
+
+from PySide6.QtCore import QLockFile, QStandardPaths, Qt
 from PySide6.QtGui import QIcon
 from northdiary.ui.data_location import resolve_data_root
 from PySide6.QtWidgets import QApplication, QMessageBox
@@ -10,6 +13,7 @@ from PySide6.QtWidgets import QApplication, QMessageBox
 from northdiary import __version__
 from northdiary.storage.database import Database
 from northdiary.ui.main_window import MainWindow
+from northdiary.services.tls import configure_tls
 
 
 def main():
@@ -20,7 +24,9 @@ def main():
     if sys.platform == 'win32':
         import ctypes
         ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID('NorthCape.NorthDiary')
+    QApplication.setAttribute(Qt.ApplicationAttribute.AA_ShareOpenGLContexts)
     app = QApplication(sys.argv[:1])
+    configure_tls()
     app.setWindowIcon(QIcon(str(Path(__file__).parent / 'resources' / 'northdiary.ico')))
     app.setApplicationName('NorthDiary')
     app.setApplicationVersion(__version__)

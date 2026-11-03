@@ -8,6 +8,8 @@ from pathlib import Path
 
 if __name__ == '__main__':
     try:
+        from northdiary.bootstrap import configure_runtime
+        configure_runtime()
         from northdiary.app import main
         raise SystemExit(main())
     except Exception:

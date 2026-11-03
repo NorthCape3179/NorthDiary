@@ -59,7 +59,7 @@ class RelationshipTests(test_people.PeopleTests):
         root = self.root / 'v4'; root.mkdir()
         with closing(sqlite3.connect(root / 'northdiary.sqlite3')) as conn:
             self.db.connection.backup(conn)
-            conn.executescript('DROP TABLE person_relationship_tags; DROP TABLE person_temporary_relationship_tags; DROP TABLE relationship_tags; PRAGMA user_version=4;')
+            conn.executescript('DROP TABLE ai_work_versions; DROP TABLE ai_works; DROP TABLE ai_turns; DROP TABLE ai_conversations; DROP TABLE person_relationship_tags; DROP TABLE person_temporary_relationship_tags; DROP TABLE relationship_tags; PRAGMA user_version=4;')
         migrated = Database(root)
         self.assertEqual(PeopleRepository(migrated).get(self.person['id']), self.person)
         migrated.close()

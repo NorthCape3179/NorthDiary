@@ -1,0 +1,250 @@
+{
+  "id": "autumn_day",
+  "version": 1,
+  "logicalSize": {
+    "width": 480,
+    "height": 270
+  },
+  "assetRoot": "assets/autumn_day/",
+  "artStatus": "独立像素美术 · 山湖底图、透明枫枝与岩岸",
+  "render": {
+    "targetFps": 30,
+    "quality": "light"
+  },
+  "layers": [
+    {
+      "id": "sky",
+      "z": 0,
+      "asset": "autumn-background-v2.png"
+    },
+    {
+      "id": "far_mountains",
+      "z": 10
+    },
+    {
+      "id": "near_mountains",
+      "z": 20
+    },
+    {
+      "id": "forest",
+      "z": 30
+    },
+    {
+      "id": "lake",
+      "z": 35
+    },
+    {
+      "id": "reflection",
+      "z": 40,
+      "asset": "autumn-background-v2.png"
+    },
+    {
+      "id": "ripples",
+      "z": 45,
+      "dynamic": true
+    },
+    {
+      "id": "surface_leaves_far",
+      "z": 46,
+      "dynamic": true
+    },
+    {
+      "id": "floating_leaves",
+      "z": 47,
+      "dynamic": true
+    },
+    {
+      "id": "surface_leaves_near",
+      "z": 48,
+      "dynamic": true
+    },
+    {
+      "id": "falling_leaves_back",
+      "z": 49,
+      "dynamic": true
+    },
+    {
+      "id": "shore",
+      "z": 50,
+      "asset": "shore-v2.png"
+    },
+    {
+      "id": "reeds",
+      "z": 60,
+      "dynamic": true
+    },
+    {
+      "id": "branches",
+      "z": 70,
+      "dynamic": true
+    },
+    {
+      "id": "near_canopy",
+      "z": 73,
+      "dynamic": true
+    },
+    {
+      "id": "falling_leaves_front",
+      "z": 80,
+      "dynamic": true
+    }
+  ],
+  "assets": {
+    "branch": "branch.svg",
+    "twig": "twig.svg",
+    "clusters": [
+      "cluster0.svg",
+      "cluster1.svg",
+      "cluster2.svg",
+      "cluster3.svg",
+      "cluster4.svg"
+    ],
+    "leaves": [
+      "leaf0.svg",
+      "leaf1.svg",
+      "leaf2.svg",
+      "leaf3.svg",
+      "leaf4.svg",
+      "leaf5.svg",
+      "leaf6.svg",
+      "leaf7.svg",
+      "leaf8.svg",
+      "leaf9.svg"
+    ],
+    "reedStem": "reed_stem.svg",
+    "reedHead": "reed_head.svg",
+    "waterMask": "water_mask.svg",
+    "foregroundMask": "foreground_mask.svg",
+    "canopy": "maple-canopy-v2.png",
+    "nearCanopy": "maple-left-short-twig-v6.png",
+    "waterLeafAtlas": "water-maple-atlas-v5.png"
+  },
+  "water": {
+    "polygon": [
+      [
+        0,
+        146
+      ],
+      [
+        480,
+        146
+      ],
+      [
+        480,
+        224
+      ],
+      [
+        469,
+        233
+      ],
+      [
+        449,
+        241
+      ],
+      [
+        430,
+        250
+      ],
+      [
+        411,
+        258
+      ],
+      [
+        381,
+        270
+      ],
+      [
+        187,
+        270
+      ],
+      [
+        170,
+        263
+      ],
+      [
+        142,
+        258
+      ],
+      [
+        117,
+        251
+      ],
+      [
+        88,
+        242
+      ],
+      [
+        60,
+        234
+      ],
+      [
+        31,
+        225
+      ],
+      [
+        0,
+        215
+      ]
+    ],
+    "flowX": 0.6,
+    "flowY": 0.1,
+    "rippleLifetimeSec": 3,
+    "rippleMaxRadius": 11,
+    "maxRipples": 24,
+    "intensity": 0.45
+  },
+  "wind": {
+    "baseX": 0.22,
+    "gustPeriodSec": 18,
+    "gustStrength": 0.28
+  },
+  "leaves": {
+    "count": 7,
+    "maxPool": 96,
+    "fallSpeedMin": 3,
+    "fallSpeedMax": 7,
+    "floatingLifetimeSec": 45,
+    "surfaceCount": 6
+  },
+  "branches": [],
+  "reeds": [
+    {
+      "x": 10,
+      "y": 225,
+      "height": 30
+    },
+    {
+      "x": 24,
+      "y": 226,
+      "height": 25
+    },
+    {
+      "x": 466,
+      "y": 248,
+      "height": 29
+    }
+  ],
+  "lyricsSafeArea": {
+    "x": 96,
+    "y": 175,
+    "width": 288,
+    "height": 72
+  },
+  "nearCanopies": [
+    {
+      "x": -2,
+      "y": -1,
+      "width": 173,
+      "height": 94,
+      "mirror": false
+    },
+    {
+      "x": 318,
+      "y": -1,
+      "width": 165,
+      "height": 94,
+      "mirror": false,
+      "asset": "maple-right-v5.png"
+    }
+  ]
+}

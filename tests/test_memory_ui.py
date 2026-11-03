@@ -224,10 +224,10 @@ class MemoryUITests(unittest.TestCase):
     def test_plain_memory_text_keeps_adjacent_text_and_removes_legacy_images_and_scripts(self):
         self.assertEqual(plain_memory_text('<p>A<img src="attachments/x.png">B</p><script>bad()</script><p>C</p>'), 'AB\nC')
 
-    def test_header_animation_collapse_expand_retains_five_controls_and_right_anchor(self):
+    def test_header_animation_collapse_expand_retains_six_controls_and_right_anchor(self):
         tools = self.window.header_tools
         right = tools.geometry().right()
-        self.assertEqual(tools.tools_layout.count(), 5)
+        self.assertEqual(tools.tools_layout.count(), 6)
         QTest.mouseClick(tools.arrow, Qt.MouseButton.LeftButton)
         QTest.qWait(230)
         self.assertTrue(tools.collapsed)

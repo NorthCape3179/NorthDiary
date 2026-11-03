@@ -1,0 +1,92 @@
+/* Art revision 2: keep the stage quiet and place lyrics over open water. */
+.embedded .shell{padding:0 12px;background:#162327}
+.embedded .intro{margin:9px 0 10px;min-height:23px}
+.embedded h1{font-family:"Microsoft YaHei",sans-serif;font-size:15px;letter-spacing:2px;color:#c8d3d0}
+.embedded h1 span,.embedded .intro-note,.embedded .under-scene,.embedded .scene-label,.embedded .scene-coordinate{display:none}
+.embedded .scene-frame{border-color:#a7c0c519;box-shadow:none;background:#122026}
+.embedded .toolbar{min-height:43px;border-bottom:0}
+.embedded .round-button{width:28px;height:28px;font-size:11px;background:#c2c6ac;border-color:transparent;color:#21383f}
+.embedded .weather strong{font-size:10px;color:#a4b9bb}.embedded .weather span{display:none}
+.embedded .play-group{gap:10px}.embedded .tool-button{padding:7px 10px;font-size:10px;gap:6px;color:#bac8c5}
+.embedded .debug-toggle{border-color:#b4ccce27}.embedded .separator{height:14px}
+/* Scene-only lyric scale and layout. The journal setting supplies the base size. */
+.embedded #viewport { container-type: size; }
+.embedded .lyrics {
+  left: 10%;
+  top: 54%;
+  bottom: 1.3%;
+  width: 80%;
+  height: auto;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-rows: minmax(0, 1fr) auto minmax(0, 1fr) auto;
+  justify-items: center;
+  align-items: center;
+  gap: clamp(4px, 2.1cqh, 17px);
+  isolation: isolate;
+  color: #faf6e9;
+  background: none;
+  --scene-lyric-size: min(calc(var(--lyric-size, 27px) + 10px), 6.8cqh);
+  text-shadow: 0 2px 3px #051820, 0 0 12px #051820cc;
+}
+.embedded .lyrics::before {
+  content: "";
+  position: absolute;
+  inset: 0 -8% 8%;
+  background: radial-gradient(ellipse, #08232f70, #08232f22 45%, transparent 72%);
+  z-index: -1;
+}
+.embedded .lyric-row {
+  width: 100%;
+  min-width: 0;
+  margin: 0;
+  text-align: center;
+}
+.embedded .lyric-row.previous { grid-row: 1; align-self: end; opacity: .68; }
+.embedded .lyric-row.current { grid-row: 2; }
+.embedded .lyric-row.next { grid-row: 3; align-self: start; opacity: .68; }
+.embedded .lyric-row.previous p,
+.embedded .lyric-row.next p {
+  font-size: calc(var(--scene-lyric-size) * .49);
+  line-height: 1.24;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.embedded .lyric-row.current p {
+  font-size: var(--scene-lyric-size);
+  line-height: 1.24;
+  overflow-wrap: anywhere;
+  text-wrap: balance;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow: hidden;
+}
+.embedded .lyric-row.current .translation {
+  font-size: calc(var(--scene-lyric-size) * .87);
+  margin-top: 3px;
+  color: #eeeeda;
+}
+.embedded .lyric-meta {
+  grid-row: 4;
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  max-width: 21cqw;
+  color: #edf1ea;
+  font: clamp(9px, 2.2cqh, 13px) "Microsoft YaHei", sans-serif;
+}
+.embedded .lyrics-label {
+  min-width: 0;
+  margin: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  color: inherit;
+  font: inherit;
+}
+.embedded .lyric-clock { flex-shrink: 0; font-variant-numeric: tabular-nums; opacity: .74; }
+.embedded .lyrics > .status { grid-row: 2; margin: 0; text-align: center; }
+
+.native-scene .toolbar, .native-scene .fullscreen-controls { display: none; }

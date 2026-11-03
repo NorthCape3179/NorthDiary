@@ -91,6 +91,11 @@ td {{padding:12px;vertical-align:top;}}
 <li>本地 SQLite 数据存储、完整 .ndiary 备份导出，以及数据库升级前快照。</li>
 </ul>
 <h3>界面与展示</h3><ul>
+<li>AI 工作室第一阶段界面：文字赏析、深度分析、故事创作、自由对话，以及文章选择与范围预览。</li>
+<li>支持 DeepSeek 密钥配置、连接测试、模型选择、流式回复、中途停止、独立对话历史与用量记录；每次发送前确认文章和上下文范围。</li>
+<li>密钥以 Windows 当前用户加密并单独保存在本机；独立 AI 作品库支持分类搜索、富文本编辑、版本历史、原文关联及 TXT / EPUB 导出。</li>
+<li>回复可主动保存为作品，已关联作品重新生成会新增版本；也可主动另存为带有 AI 标记的普通文章。</li>
+<li>轻量赏析与分析支持按任务生成、指定分析对象和按段编号批注；故事创作支持大纲、人物设定、连续性备忘、分章生成与续写。</li>
 <li>三栏原生桌面窗口、八套配色、深浅模式一键切换，并分别记住上次配色。</li>
 <li>右上角功能区支持折叠；随机回忆位于数据文件夹之后，软件详情入口始终位于顶栏最右侧。</li>
 <li>独立展示模式提供虚构文章、人物与标签，不与个人数据混用。</li>
@@ -98,11 +103,14 @@ td {{padding:12px;vertical-align:top;}}
 
 <a name="changes"></a><h2>更新日志</h2>
 <p class="muted">历史版本：<a href="#v15">v1.5</a> · <a href="#v14">v1.4</a> · <a href="#v13">v1.3</a> · <a href="#v12">v1.2</a> · <a href="#v11">v1.1</a> · <a href="#v10">v1.0</a></p>
-<h3>v{version} · 源码预发布</h3><ul>
-<li>新增时间线之外与待确认文章，支持确认及拖动确认。</li>
-<li>新增分类标签多选筛选、定义管理与数据位置切换及复制。</li>
-<li>新增段落居中、日期排序切换及多项编辑整理体验优化。</li>
-<li>数据库升级至 schema v7，专用 EPUB 格式升级至 v4；本次只发布源码。</li>
+<h3>v{version} · AI 工作室、同步歌词与秋日湖畔</h3><ul>
+<li>接入 DeepSeek，支持流式对话、文章选择与发送确认，以及点评、分析和创作。</li>
+<li>AI 作品库支持版本历史、关联原文、TXT / EPUB 导出及另存为文章。</li>
+<li>加入网易云同步歌词，支持译文、字体与字号设置。</li>
+<li>加入秋日湖畔动态场景，默认铺满工作区，支持同步歌词、风、落叶、水面及落水波纹。</li>
+<li>优化文章栏悬停提示和脚本启动。数据库升级至 schema v9，本版提供源码与脚本。</li>
+</ul><h3>v1.7.5-beta</h3><ul>
+<li>加入时间线之外、待确认文章、分类标签多选与数据位置管理。</li>
 </ul><h3>v1.7.0 · 历史功能汇总</h3><ul>
 <li>新增分区排版的软件详情页，统一程序及详情页版本显示。</li>
 <li>扩展人物档案、人物标签、代号插入与人物关系管理。</li>
@@ -177,7 +185,7 @@ td {{padding:12px;vertical-align:top;}}
 <h3>当前范围</h3>
 <p class="muted">GitHub 传输为手动文章包交换，不是自动双向同步。EPUB 仅支持 NorthDiary 专用格式，不包含未在正文引用的独立附件。自助备份恢复、PDF 与自动备份尚未完成；真实账号、阅读器与 Windows 显示体验仍需持续验收。</p>
 <hr style="color:{c('#d4ddd1')};"/>
-<p class="muted">使用 PySide6 / Qt（LGPLv3）、EbookLib（AGPLv3）等开源组件。安装目录 _internal/licenses 提供许可证、第三方声明及本版本项目源码和构建说明。</p>
+<p class="muted">使用 PySide6 / Qt（LGPLv3）、EbookLib（AGPLv3）等开源组件。脚本目录中的 LICENSE、THIRD_PARTY_NOTICES.md 和 licenses 提供许可与第三方声明。</p>
 <p style="font-size:17px;font-weight:600;">作者 NorthCape</p>
 <p>闲聊 Q 群 <b>539241974</b></p>
 <p>辅助 ChatGPT <span style="font-size:11px;color:{c('#75827a')};">（其实是主力）</span></p>

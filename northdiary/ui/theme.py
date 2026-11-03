@@ -32,7 +32,7 @@ QPushButton#primary:hover { background: #416f5d; }
 QPushButton:disabled { color: #a0aaa0; background: #eeeee9; }
 QListWidget { background: transparent; border: none; outline: none; }
 QListWidget::item { border-radius: 7px; padding: 12px 8px; margin: 2px 0; }
-QListWidget::item:selected { background: #d5e1d0; color: #234735; }
+QListWidget::item:selected, ArticleList::item:selected:hover { background: #d5e1d0; color: #234735; }
 QListWidget::item:hover { background: #e0e8db; }
 QSplitter::handle { background: transparent; width: 9px; }
 QStatusBar { color: #708075; background: #f6f5f1; }

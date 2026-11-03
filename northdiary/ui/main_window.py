@@ -4,7 +4,7 @@ from PySide6.QtCore import QDate, QTimer, Qt, QUrl, QSize, QSettings
 from PySide6.QtGui import QAction, QFont, QImageReader, QKeySequence, QIcon, QDesktopServices
 from PySide6.QtWidgets import (
     QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, QSplitter, QLabel, QPushButton,
-    QLineEdit, QDateEdit, QListWidget, QListWidgetItem, QComboBox, QFileDialog, QMessageBox, QInputDialog, QScrollArea, QFrame, QToolButton, QMenu,
+    QLineEdit, QDateEdit, QListWidget, QListWidgetItem, QComboBox, QFileDialog, QMessageBox, QInputDialog, QScrollArea, QFrame, QToolButton, QMenu, QStackedWidget,
 )
 
 from northdiary import __version__
@@ -30,6 +30,7 @@ from northdiary.ui.overview_dialog import OverviewDialog
 from northdiary.ui.date_picker import DateInput, matches_day
 from northdiary.ui.header_tools import HeaderTools
 from northdiary.ui.about_dialog import AboutButton, AboutDialog
+from northdiary.ui.lyrics_board import LyricsBoard, lyrics_icon
 
 
 def label(text, name='muted'):
@@ -70,6 +71,7 @@ class MainWindow(QMainWindow):
         self.build_ui()
         self.button_feedback = ButtonFeedback(self)
         self.ui_settings = QSettings(str(database.root / 'ui.ini'), QSettings.Format.IniFormat)
+        self.lyrics_board.bind_settings(self.ui_settings)
         self.header_tools.set_collapsed(self.ui_settings.value('header_collapsed', False, type=bool), animate=False)
         self.header_tools.collapsedChanged.connect(self.remember_header_state)
         self.recent_ids = self.ui_settings.value('recent_articles', [], type=list)
@@ -110,8 +112,46 @@ class MainWindow(QMainWindow):
         header.addWidget(label('NorthDiary', 'brand'))
         self.space_button = self.button('时间线之外', self.toggle_space, True)
         header.addWidget(self.space_button)
+        self.studio_button = self.button('AI 工作室', self.toggle_studio)
+        header.addWidget(self.studio_button)
+        self.scene_button = self.button('秋日湖畔', self.toggle_scene)
+        header.addWidget(self.scene_button)
+        self.scene_controls = QWidget()
+        scene_tools = QHBoxLayout(self.scene_controls)
+        scene_tools.setContentsMargins(0, 0, 0, 0)
+        for title, command in (
+            ('暂停 / 继续', 'pause'),
+            ('铺满 / 还原', 'fullscreen'),
+            ('场景设置', 'debug-toggle'),
+        ):
+            scene_tools.addWidget(self.button(title, lambda checked=False, name=command: self.autumn_scene.click_control(name)))
+        scene_lyrics = self.button('同步歌词', self.set_scene_lyrics)
+        scene_lyrics.setCheckable(True)
+        scene_tools.insertWidget(1, scene_lyrics)
+        header.addWidget(self.scene_controls)
+        self.scene_controls.hide()
         header.addStretch()
         self.header_tools = HeaderTools()
+        self.lyrics_button = QToolButton()
+        self.lyrics_button.setObjectName('lyricsToggle')
+        self.lyrics_button.setStyleSheet('QToolButton#lyricsToggle { background: transparent; border: none; border-radius: 6px; padding: 0; } QToolButton#lyricsToggle:hover { background: #e0e8db; } QToolButton#lyricsToggle:checked { background: #315c4d; } QToolButton#lyricsToggle:checked:hover { background: #416f5d; }')
+        self.lyrics_button.setFixedSize(24, 24)
+        self.lyrics_button.setIconSize(QSize(18, 18))
+        self.lyrics_button.setCheckable(True)
+        self.lyrics_button.setAccessibleName('显示歌词')
+        self.lyrics_button.setToolTip('歌词：读取网易云播放信息，以当前歌名、歌手、专辑和时长查询网易云歌词及 LRCLIB；在中央底部显示，不切换阅读模式')
+        self.lyrics_button.clicked.connect(self.toggle_lyrics)
+        self.lyrics_button.toggled.connect(self.update_lyrics_icon)
+        self.lyrics_button.toggled.connect(scene_lyrics.setChecked)
+        self.lyrics_options_button = QToolButton()
+        self.lyrics_options_button.setObjectName('articleTool')
+        self.lyrics_options_button.setFixedSize(90, 30)
+        self.lyrics_options_button.setText("歌词设置 ▾")
+        self.lyrics_options_button.setAccessibleName('歌词设置')
+        self.lyrics_options_button.setToolTip('歌词设置')
+        self.lyrics_options_button.clicked.connect(self.toggle_lyrics_options)
+        self.header_tools.add_widget(self.lyrics_options_button)
+        self.lyrics_options = None
         self.theme_mode_button = self.button('切换深色', lambda: self.set_theme(not bool(self.property('darkTheme'))))
         self.theme_mode_button.setFixedWidth(96)
         self.theme_mode_button.setAccessibleName('切换深浅主题')
@@ -125,7 +165,8 @@ class MainWindow(QMainWindow):
         self.header_tools.add_widget(self.button('数据文件夹', self.manage_data_location))
         self.random_memory_button = self.button('随机回忆', self.open_random_memory)
         self.header_tools.add_widget(self.random_memory_button)
-        self.header_tools.add_widget(self.button('保存  Ctrl+S', lambda: self.save(True)))
+        self.diary_save_button = self.button('保存  Ctrl+S', lambda: self.save(True))
+        self.header_tools.add_widget(self.diary_save_button)
         header.addWidget(self.header_tools)
         self.about_button = AboutButton()
         self.about_button.clicked.connect(self.open_about)
@@ -133,7 +174,9 @@ class MainWindow(QMainWindow):
         outer.addLayout(header)
         self.splitter = QSplitter(Qt.Orientation.Horizontal)
         self.splitter.setChildrenCollapsible(False)
-        outer.addWidget(self.splitter, 1)
+        self.workspace_stack = QStackedWidget()
+        self.workspace_stack.addWidget(self.splitter)
+        outer.addWidget(self.workspace_stack, 1)
         self.setCentralWidget(frame)
 
         sidebar = QWidget()
@@ -266,6 +309,7 @@ class MainWindow(QMainWindow):
         self.background_button.setAccessibleName('季节背景')
         self.background_button.clicked.connect(lambda checked: self.set_background(checked))
         article_bar.addWidget(self.background_button)
+        article_bar.addWidget(self.lyrics_button)
         article_bar.addStretch()
         band_layout.addWidget(tool_strip)
         divider = QFrame()
@@ -399,6 +443,9 @@ class MainWindow(QMainWindow):
         self.image_list.itemDoubleClicked.connect(lambda item: self.open_image(item.data(Qt.ItemDataRole.UserRole)))
         self.image_list.currentItemChanged.connect(lambda *_: self.update_image_actions())
         self.photo_layout.addWidget(self.image_list, 1)
+        self.lyrics_board = LyricsBoard(self.paper)
+        self.center_layout.addWidget(self.lyrics_board)
+        self.lyrics_board.hide()
         self.image_actions = QWidget()
         action_layout = QVBoxLayout(self.image_actions)
         action_layout.setContentsMargins(0, 0, 0, 0)
@@ -467,6 +514,7 @@ class MainWindow(QMainWindow):
         new_action.setShortcut(QKeySequence.StandardKey.New)
         new_action.triggered.connect(self.new_article)
         self.addAction(new_action)
+        self.diary_actions = (save_action, new_action)
         fullscreen_action = QAction('切换全屏', self)
         fullscreen_action.setShortcut(QKeySequence('F11'))
         fullscreen_action.triggered.connect(self.toggle_fullscreen)
@@ -475,6 +523,86 @@ class MainWindow(QMainWindow):
         exit_fullscreen.setShortcut(QKeySequence('Escape'))
         exit_fullscreen.triggered.connect(self.leave_fullscreen)
         self.addAction(exit_fullscreen)
+        from northdiary.ui.ai_studio import AIStudio
+        self.ai_studio = AIStudio(self.database, self)
+        self.ai_studio.articleRequested.connect(self.open_studio_article)
+        self.workspace_stack.addWidget(self.ai_studio)
+        from northdiary.ui.autumn_scene import AutumnScene
+        self.autumn_scene = AutumnScene(self.lyrics_board, self.lyrics_button, self)
+        self.autumn_scene.lyricsToggled.connect(self.set_scene_lyrics)
+        self.workspace_stack.addWidget(self.autumn_scene)
+
+    def toggle_studio(self):
+        self.set_studio(self.workspace_stack.currentWidget() is not self.ai_studio)
+
+    def set_studio(self, enabled):
+        return self.set_workspace(self.ai_studio if enabled else self.splitter)
+
+    def toggle_scene(self):
+        target = self.splitter if self.workspace_stack.currentWidget() is self.autumn_scene else self.autumn_scene
+        self.set_workspace(target)
+
+    def set_scene_lyrics(self, enabled):
+        self.lyrics_button.setChecked(enabled)
+        self.sync_lyrics_layout()
+
+    def set_workspace(self, target):
+        current = self.workspace_stack.currentWidget()
+        if current is target:
+            return True
+        if current is self.ai_studio and not self.ai_studio.library.can_leave():
+            return False
+        if current is self.splitter and not self.save(True):
+            return False
+        self.timeline_preview_timer.stop()
+        self.pending_timeline_date = None
+        self.workspace_stack.setCurrentWidget(target)
+        diary = target is self.splitter
+        studio = target is self.ai_studio
+        scene = target is self.autumn_scene
+        self.studio_button.setText('返回日记' if studio else 'AI 工作室')
+        self.scene_button.setText('返回日记' if scene else '秋日湖畔')
+        self.scene_controls.setVisible(scene)
+        self.space_button.setVisible(diary)
+        self.diary_save_button.setVisible(diary)
+        self.random_memory_button.setVisible(diary and not self.outside)
+        self.lyrics_button.setVisible(diary)
+        self.lyrics_options_button.setVisible(not studio)
+        if self.lyrics_options:
+            self.lyrics_options.hide()
+        self.autumn_scene.set_active(scene)
+        self.sync_lyrics_layout()
+        for action in self.diary_actions:
+            action.setEnabled(diary)
+        if studio:
+            self.ai_studio.runtime.activate()
+            self.ai_studio.set_articles(self.ai_studio.article_ids)
+            self.ai_studio.nav_buttons[self.ai_studio.current_page].setFocus()
+        elif diary:
+            self.editor.setFocus()
+        return True
+
+    def open_studio_article(self, article_id):
+        try:
+            article = self.repository.get(article_id)
+            if article.deleted_at:
+                raise ValueError('这篇文章已移入回收站，请先恢复。')
+            if not self.save(True):
+                return
+            outside = self.repository.is_outside(article_id)
+            if outside != self.outside and not self.set_space(outside):
+                return
+            self.search.clear()
+            self.category = self.tag = None
+            self.selected_categories = self.selected_tags = None
+            self.clear_day()
+            self.refresh_categories()
+            self.refresh_filter_buttons()
+            self.load_article(article_id)
+            self.refresh_list()
+            self.set_studio(False)
+        except Exception as error:
+            self.fail(error)
 
     def toggle_fullscreen(self):
         if self.isFullScreen():
@@ -527,6 +655,9 @@ class MainWindow(QMainWindow):
         self.ui_settings.sync()
         self.update_pin()
         self.background_button.setIcon(landscape_icon(dark, self.devicePixelRatioF(), self.property('colorTheme')))
+        self.update_lyrics_icon()
+        self.lyrics_board.update()
+        self.lyrics_board.canvas.update()
         self.paper.refresh_background(force=True)
         self.refresh_list()
 
@@ -547,7 +678,8 @@ class MainWindow(QMainWindow):
         key = self.selected_image_id()
         self.image_actions.setVisible(bool(key) and not self.preview.isChecked())
         has_images = self.image_list.count() > 0
-        self.image_list.setVisible(has_images)
+        lyrics = self.preview.isChecked() and not self.trash and self.lyrics_button.isChecked()
+        self.image_list.setVisible(has_images and not lyrics)
         self.image_hint.setVisible(not has_images)
         editable = bool(self.current_id) and not self.trash and not self.preview.isChecked()
         linked = bool(key and self.editor.image_links(key))
@@ -555,6 +687,28 @@ class MainWindow(QMainWindow):
         self.caption_button.setEnabled(bool(key) and editable)
         self.place_link_button.setEnabled(bool(key) and editable)
         self.remove_link_button.setEnabled(linked and editable)
+
+    def toggle_lyrics_options(self):
+        if self.lyrics_options is None:
+            from northdiary.ui.lyrics_board import LyricsSettingsPopup
+            self.lyrics_options = LyricsSettingsPopup(self.lyrics_options_button, self)
+        self.lyrics_options.toggle()
+
+    def update_lyrics_icon(self, *_):
+        self.lyrics_button.setIcon(lyrics_icon(self, self.lyrics_button.isChecked()))
+
+    def toggle_lyrics(self, checked):
+        self.sync_lyrics_layout()
+
+    def sync_lyrics_layout(self):
+        visible = (self.lyrics_button.isChecked()
+                   and self.workspace_stack.currentWidget() is self.splitter)
+        self.lyrics_board.setVisible(visible)
+        observing = self.lyrics_button.isChecked() and self.workspace_stack.currentWidget() in (self.splitter, self.autumn_scene)
+        if self.lyrics_board.enabled != observing:
+            self.lyrics_board.set_active(observing)
+        self.autumn_scene.send_state()
+        self.image_list.setVisible(self.image_list.count() > 0 and not (visible and self.preview.isChecked()))
 
     def select_creation_date(self, date):
         if self.loading or self.current_id:
@@ -1145,6 +1299,7 @@ class MainWindow(QMainWindow):
         self.image_list.setMaximumHeight(170 if reading else 320)
         self.photo_panel.setVisible(not reading)
         self.reading_nav.setVisible(reading)
+        self.sync_lyrics_layout()
         if reading:
             if not self.loading:
                 self.reading_date.blockSignals(True)
@@ -1484,13 +1639,24 @@ class MainWindow(QMainWindow):
         dialog.exec()
 
     def manage_data_location(self):
+        if self.ai_studio.runtime.client.busy:
+            self.statusBar().showMessage('请先停止生成或等待完成，再切换数据文件夹。')
+            return
         from northdiary.ui.storage_actions import manage_location
         manage_location(self)
 
     def closeEvent(self, event):
+        if not self.lyrics_board.shutdown():
+            event.ignore()
+            QTimer.singleShot(150, self.close)
+            return
         if self.save(True):
+            if not self.ai_studio.runtime.shutdown():
+                event.ignore()
+                return
             self.timeline_preview_timer.stop()
             self.pending_timeline_date = None
+            self.autumn_scene.shutdown()
             event.accept()
         else:
             event.ignore()

@@ -75,7 +75,7 @@ class DraftFlowTests(unittest.TestCase):
     def test_v6_migration_keeps_existing_articles_confirmed(self):
         root=self.root/'v6';old=Database(root);from northdiary.storage.repository import ArticleRepository
         key=ArticleRepository(old).create().id
-        old.connection.executescript('DROP TABLE draft_articles; PRAGMA user_version=6;');old.close()
+        old.connection.executescript('DROP TABLE ai_work_versions; DROP TABLE ai_works; DROP TABLE ai_turns; DROP TABLE ai_conversations; DROP TABLE draft_articles; PRAGMA user_version=6;');old.close()
         again=Database(root)
         try:
             repo=ArticleRepository(again);self.assertEqual([a.id for a in repo.list()],[key]);self.assertFalse(repo.is_draft(key))

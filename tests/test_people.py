@@ -61,7 +61,7 @@ class PeopleTests(unittest.TestCase):
         self.db.connection.commit()
         with closing(sqlite3.connect(root/'northdiary.sqlite3')) as conn:
             self.db.connection.backup(conn)
-            conn.executescript('DROP TABLE person_relationship_tags; DROP TABLE person_temporary_relationship_tags; DROP TABLE relationship_tags; DROP TABLE article_people; DROP TABLE people; PRAGMA user_version=3;')
+            conn.executescript('DROP TABLE ai_work_versions; DROP TABLE ai_works; DROP TABLE ai_turns; DROP TABLE ai_conversations; DROP TABLE person_relationship_tags; DROP TABLE person_temporary_relationship_tags; DROP TABLE relationship_tags; DROP TABLE article_people; DROP TABLE people; PRAGMA user_version=3;')
         migrated = Database(root)
         self.assertEqual(migrated.connection.execute('PRAGMA user_version').fetchone()[0], SCHEMA_VERSION)
         self.assertEqual(ArticleRepository(migrated).get(self.article.id).title, '相遇')
