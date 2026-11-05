@@ -59,6 +59,8 @@ final class EpubExportDialog extends Dialog {
     }
     @Override protected void onStart(){
         super.onStart();getWindow().setLayout(Math.min(Ui.dp(host,720),host.getResources().getDisplayMetrics().widthPixels),ViewGroup.LayoutParams.MATCH_PARENT);getWindow().setGravity(Gravity.CENTER);
+        boolean light=(host.getResources().getConfiguration().uiMode&android.content.res.Configuration.UI_MODE_NIGHT_MASK)!=android.content.res.Configuration.UI_MODE_NIGHT_YES;
+        getWindow().getDecorView().setSystemUiVisibility(light?View.SYSTEM_UI_FLAG_LIGHT_STATUS_BAR|View.SYSTEM_UI_FLAG_LIGHT_NAVIGATION_BAR:0);
         LinearLayout.LayoutParams p=(LinearLayout.LayoutParams)controls.getLayoutParams();p.height=Ui.dp(host,Math.min(360,Math.max(96,host.getResources().getConfiguration().screenHeightDp-220)));controls.setLayoutParams(p);
     }
     private void chooseGroup(String kind,Map<String,Set<String>> groups){
