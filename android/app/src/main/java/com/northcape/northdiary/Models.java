@@ -9,6 +9,8 @@ final class Models {
         String html = "", text = "", created = "", updated = "";
         boolean outside, draft, deleted;
         List<String> tags = new ArrayList<>(), people = new ArrayList<>();
+        // Null means an older edit journal/caller did not edit categories.
+        List<String> categories;
     }
     static final class Person {
         String id, name = "", code = "", birth = "", met = "", how = "";

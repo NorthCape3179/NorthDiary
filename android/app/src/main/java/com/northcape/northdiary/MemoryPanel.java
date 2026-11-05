@@ -26,6 +26,8 @@ final class MemoryPanel extends LinearLayout {
         spaces=Ui.row(host);addView(Ui.horizontal(host,spaces));renderSpaces();Ui.gap(this,10);
         LinearLayout filters=Ui.row(host);Button tag=Ui.quiet(host,host.tag.isEmpty()?"全部标签 ⌄":host.tag+" ⌄",host::pickTag);tag.setTextSize(12);Ui.weighted(filters,tag,1);
         sort=Ui.quiet(host,"",()->{host.byDate=!host.byDate;refresh();});sort.setTextSize(12);Ui.weighted(filters,sort,1);addView(filters);
+        LinearLayout tools=Ui.row(host);Ui.weighted(tools,Ui.quiet(host,host.category.isEmpty()?"全部分类 ⌄":host.category+" ⌄",host::pickCategory),1);
+        Ui.weighted(tools,Ui.quiet(host,"随机回忆",host::randomMemory),1);Ui.weighted(tools,Ui.quiet(host,"导出文集",host::exportEpub),1);addView(Ui.horizontal(host,tools));
         count=Ui.text(host,"",11,R.color.muted);count.setPadding(Ui.dp(host,4),Ui.dp(host,8),0,Ui.dp(host,10));if(!Ui.compact(host))addView(count);
         FrameLayout body=new FrameLayout(host);addView(body,new LayoutParams(-1,0,1));
         list=new ListView(host);list.setDivider(new ColorDrawable(android.graphics.Color.TRANSPARENT));list.setDividerHeight(Ui.dp(host,10));list.setVerticalScrollBarEnabled(false);list.setClipToPadding(false);list.setPadding(0,0,0,Ui.dp(host,10));body.addView(list,new FrameLayout.LayoutParams(-1,-1));
@@ -42,7 +44,7 @@ final class MemoryPanel extends LinearLayout {
         }
     }
     void refresh(){
-        articles=store.list(host.query,host.tag,host.space,host.byDate,null);count.setText(articles.size()+" 篇记忆");sort.setText(host.byDate?"事件时间 ↓":"创建时间 ↓");
+        articles=store.list(host.query,host.tag,host.category,host.space,host.byDate,null);count.setText(articles.size()+" 篇记忆");sort.setText(host.byDate?"事件时间 ↓":"创建时间 ↓");
         list.setAdapter(new BaseAdapter(){
             public int getCount(){return articles.size();}public Article getItem(int i){return articles.get(i);}public long getItemId(int i){return i;}
             public View getView(int i,View recycled,ViewGroup parent){

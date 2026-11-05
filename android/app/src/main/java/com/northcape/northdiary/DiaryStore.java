@@ -42,6 +42,9 @@ final class DiaryStore extends SQLiteOpenHelper {
     }
     static String now() { return OffsetDateTime.now().toString(); }
     synchronized List<Article> list(String query, String tag, int space, boolean byDate, String person) {
+        return list(query,tag,"",space,byDate,person);
+    }
+    synchronized List<Article> list(String query, String tag, String category, int space, boolean byDate, String person) {
         String sql = "SELECT a.* FROM articles a WHERE a.deleted_at IS " + (space == 3 ? "NOT NULL" : "NULL");
         List<String> args = new ArrayList<>();
         if (space != 3) {
@@ -59,6 +62,10 @@ final class DiaryStore extends SQLiteOpenHelper {
         if (person != null) {
             sql += " AND EXISTS (SELECT 1 FROM article_people p WHERE p.article_id=a.id AND p.person_id=?)";
             args.add(person);
+        }
+        if (!category.isEmpty()) {
+            sql += " AND EXISTS (SELECT 1 FROM article_categories r JOIN categories c ON c.id=r.category_id WHERE r.article_id=a.id AND c.name=?)";
+            args.add(category);
         }
         sql += " ORDER BY " + (byDate && space == 0 ? "replace(a.diary_date,'未知','00')" : "a.created_at") + " DESC,a.id";
         List<Article> results = new ArrayList<>();
@@ -83,6 +90,7 @@ final class DiaryStore extends SQLiteOpenHelper {
         }
         a.outside = exists("outside_articles", id); a.draft = exists("draft_articles", id);
         a.tags = strings("SELECT t.name FROM tags t JOIN article_tags r ON r.tag_id=t.id WHERE r.article_id=? ORDER BY t.name",id);
+        a.categories = strings("SELECT c.name FROM categories c JOIN article_categories r ON r.category_id=c.id WHERE r.article_id=? ORDER BY c.name",id);
         a.people = strings("SELECT person_id FROM article_people WHERE article_id=?",id);
         return a;
     }
@@ -118,6 +126,16 @@ final class DiaryStore extends SQLiteOpenHelper {
                 db.execSQL("INSERT INTO article_tags VALUES (?,?)",new Object[]{a.id,key});
             }
             db.delete("article_people","article_id=?",new String[]{a.id});
+            if(a.categories!=null) {
+                db.delete("article_categories","article_id=?",new String[]{a.id});
+                for(String name:new LinkedHashSet<>(a.categories)) {
+                    name=name.trim();if(name.isEmpty())continue;
+                    ContentValues category=new ContentValues();category.put("id",UUID.randomUUID().toString());category.put("name",name);
+                    db.insertWithOnConflict("categories",null,category,SQLiteDatabase.CONFLICT_IGNORE);
+                    String key=strings("SELECT id FROM categories WHERE name=?",name).get(0);
+                    db.execSQL("INSERT INTO article_categories VALUES (?,?)",new Object[]{a.id,key});
+                }
+            }
             for (String id : new LinkedHashSet<>(a.people)) db.execSQL("INSERT INTO article_people VALUES (?,?)",new Object[]{a.id,id});
             membership(db,"outside_articles",a.id,a.outside); membership(db,"draft_articles",a.id,a.draft);
             db.setTransactionSuccessful();
@@ -130,6 +148,16 @@ final class DiaryStore extends SQLiteOpenHelper {
     private static void membership(SQLiteDatabase db,String table,String id,boolean enabled) {
         db.delete(table,"article_id=?",new String[]{id});
         if (enabled) db.execSQL("INSERT INTO " + table + " VALUES (?)",new Object[]{id});
+    }
+    synchronized List<Article> exportable() {
+        List<Article> articles=new ArrayList<>();
+        for(int space=0;space<=1;space++)for(Article row:list("","",space,true,null))articles.add(get(row.id));
+        return articles;
+    }
+    synchronized List<String> articleTags(String id) {
+        LinkedHashSet<String> tags=new LinkedHashSet<>(get(id).tags);
+        tags.addAll(strings("SELECT name FROM article_temporary_tags WHERE article_id=? ORDER BY name",id));
+        return new ArrayList<>(tags);
     }
     synchronized void deleted(String id, boolean deleted) {
         ContentValues v = new ContentValues(); if (deleted) v.put("deleted_at",now()); else v.putNull("deleted_at");

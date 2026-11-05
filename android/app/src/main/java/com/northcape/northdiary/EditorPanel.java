@@ -15,7 +15,7 @@ final class EditorPanel extends ScrollView {
     private final MainActivity host;
     private final DiaryStore store;
     private final Article article;
-    private final EditText title,date,tags,body;
+    private final EditText title,date,tags,categories,body;
     private final CheckBox outside,draft;
     private final TextView status,peopleLabel;
     private List<String> selectedPeople;
@@ -42,6 +42,7 @@ final class EditorPanel extends ScrollView {
         title=Ui.input(host,"标题",true);title.setText(article.title);title.setTextSize(26);title.setTypeface(Typeface.create("sans-serif-medium",Typeface.NORMAL));title.setBackground(null);title.setPadding(0,Ui.dp(host,8),0,Ui.dp(host,12));
         date=Ui.input(host,"事件日期：2026 / 2026-11 / 2026-11-01",true);date.setText(article.date.replace("-未知-未知","").replace("-未知",""));
         tags=Ui.input(host,"标签，用中文或英文逗号分隔",true);tags.setText(TextUtils.join("，",article.tags));
+        categories=Ui.input(host,"分类，用中文或英文逗号分隔",true);categories.setText(article.categories==null?"":TextUtils.join("，",article.categories));
         outside=new CheckBox(host);outside.setText("时间线之外 · 阅读时隐藏事件日期");outside.setChecked(article.outside);
         draft=new CheckBox(host);draft.setText("待确认文章");draft.setChecked(article.draft);
         body=Ui.input(host,"写下想留下的记忆……",false);body.setGravity(Gravity.TOP);body.setMinLines(12);body.setTextSize(17);body.setBackground(null);body.setPadding(0,Ui.dp(host,8),0,Ui.dp(host,20));body.setLineSpacing(Ui.dp(host,6),1.1f);
@@ -53,9 +54,10 @@ final class EditorPanel extends ScrollView {
         if(edit) {
             content.addView(title);
             LinearLayout meta=Ui.column(host);Ui.card(meta);meta.setVisibility(GONE);
-            Button organize=Ui.button(host,"日期、标签与人物  ⌄",()->meta.setVisibility(meta.getVisibility()==GONE?VISIBLE:GONE));content.addView(organize);Ui.gap(content,10);content.addView(meta);
+            Button organize=Ui.button(host,"日期、分类、标签与人物  ⌄",()->meta.setVisibility(meta.getVisibility()==GONE?VISIBLE:GONE));content.addView(organize);Ui.gap(content,10);content.addView(meta);
             meta.addView(outside);Ui.gap(meta,8);meta.addView(Ui.text(host,"事件日期",12,R.color.muted));Ui.gap(meta,6);meta.addView(date);date.setEnabled(!article.outside);
-            Ui.gap(meta,8);meta.addView(draft);Ui.gap(meta,8);meta.addView(Ui.text(host,"标签",12,R.color.muted));Ui.gap(meta,6);meta.addView(tags);Ui.gap(meta,12);meta.addView(peopleLabel);Ui.gap(meta,8);
+            Ui.gap(meta,8);meta.addView(draft);Ui.gap(meta,8);meta.addView(Ui.text(host,"分类",12,R.color.muted));Ui.gap(meta,6);meta.addView(categories);
+            Ui.gap(meta,8);meta.addView(Ui.text(host,"标签",12,R.color.muted));Ui.gap(meta,6);meta.addView(tags);Ui.gap(meta,12);meta.addView(peopleLabel);Ui.gap(meta,8);
             meta.addView(Ui.button(host,"选择关联人物",this::pickPeople));Ui.gap(content,16);
             LinearLayout toolbar=Ui.row(host);
             toolbar.addView(Ui.button(host,"加粗",()->format(Typeface.BOLD)));
@@ -75,7 +77,7 @@ final class EditorPanel extends ScrollView {
             content.addView(Ui.horizontal(host,toolbar));
             Ui.gap(content,10);content.addView(body);
             content.addView(Ui.text(host,"选中文字后设置格式。图片以文件名链接保存在文章中。",11,R.color.muted));Ui.gap(content,12);
-            Ui.watch(title,host::editorChanged);Ui.watch(date,host::editorChanged);Ui.watch(tags,host::editorChanged);
+            Ui.watch(title,host::editorChanged);Ui.watch(date,host::editorChanged);Ui.watch(tags,host::editorChanged);Ui.watch(categories,host::editorChanged);
             body.addTextChangedListener(new TextWatcher(){
                 public void beforeTextChanged(CharSequence s,int start,int count,int after){}
                 public void onTextChanged(CharSequence s,int start,int before,int count){bodyChanged=true;host.editorChanged();}
@@ -87,6 +89,7 @@ final class EditorPanel extends ScrollView {
             TextView heading=Ui.heading(host,article.title);heading.setTextSize(27);content.addView(heading);Ui.gap(content,12);
             if(!article.outside)content.addView(Ui.text(host,PartialDate.label(article.date),14,R.color.muted));
             if(!article.tags.isEmpty())content.addView(Ui.text(host,"标签："+TextUtils.join(" · ",article.tags),14,R.color.accent));
+            if(article.categories!=null&&!article.categories.isEmpty())content.addView(Ui.text(host,"分类："+TextUtils.join(" · ",article.categories),14,R.color.accent));
             if(!selectedPeople.isEmpty()){Ui.gap(content,10);content.addView(peopleLabel);}Ui.gap(content,22);
             TextView reader=Ui.text(host,"",18,R.color.ink);reader.setText(ArticleText.parse(host,article.html,attachments));
             reader.setLineSpacing(Ui.dp(host,5),1.1f);reader.setMovementMethod(LinkMovementMethod.getInstance());content.addView(reader);
@@ -103,6 +106,7 @@ final class EditorPanel extends ScrollView {
         article.title=title.getText().toString();article.date=date.getText().toString();
         article.outside=outside.isChecked();article.draft=draft.isChecked();
         article.tags=new ArrayList<>();for(String tag:tags.getText().toString().split("[,，\\n]"))if(!tag.trim().isEmpty())article.tags.add(tag.trim());
+        article.categories=new ArrayList<>();for(String name:categories.getText().toString().split("[,，\\n]"))if(!name.trim().isEmpty())article.categories.add(name.trim());
         article.people=new ArrayList<>(selectedPeople);
         if(bodyChanged) { article.html=ParagraphFormatting.html(body.getText());article.text=body.getText().toString(); }
         if(article.outside) {
