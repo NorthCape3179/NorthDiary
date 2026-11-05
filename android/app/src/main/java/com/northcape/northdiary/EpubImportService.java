@@ -49,7 +49,7 @@ final class EpubImportService {
                 }
             }
             ExchangeRecords.require(mime,"不是有效的 EPUB 文件");ExchangeRecords.require(manifest!=null,"仅支持带 NorthDiary 数据清单的 EPUB。普通电子书及安卓 0.1.3 的阅读文集暂不能导入，请从新版重新导出。");
-            JSONObject data=ExchangeRecords.parse(manifest);Object version=data.get("version");ExchangeRecords.require(data.getString("format").equals(ExchangeRecords.FORMAT)&&(version instanceof Integer||version instanceof Long)&&data.getInt("version")>=1&&data.getInt("version")<=4,"不支持此 NorthDiary EPUB 版本");
+            JSONObject data=ExchangeRecords.parse(manifest);Object version=data.get("version");ExchangeRecords.require(data.getString("format").equals(ExchangeRecords.FORMAT)&&(version instanceof Integer||version instanceof Long)&&((Number)version).longValue()>=1&&((Number)version).longValue()<=4,"不支持此 NorthDiary EPUB 版本");
             JSONArray records=data.getJSONArray("articles");ExchangeRecords.require(records.length()>0&&records.length()<=1000,"文章数量无效或超过 1000 篇");Set<String> ids=new HashSet<>();Map<String,String> people=new HashMap<>(),codes=new HashMap<>();int references=0;
             for(int i=0;i<records.length();i++){
                 JSONObject record=records.getJSONObject(i);ExchangeRecords.validate(record,data.getInt("version"));ExchangeRecords.require(ids.add(record.getString("id")),"同一文章重复出现");references+=record.getJSONArray("assets").length();ExchangeRecords.require(references<=5000,"图片引用过多");

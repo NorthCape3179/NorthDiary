@@ -61,6 +61,7 @@ final class ExchangeRecords {
     static JSONObject article(DiaryStore store,String id,JSONArray assets)throws Exception{
         JSONObject record=row(store,"SELECT * FROM articles WHERE id=?",id);for(String key:new String[]{"deleted_at","sort_order","body_text"})record.remove(key);
         record.put("outside_timeline",!store.strings("SELECT article_id FROM outside_articles WHERE article_id=?",id).isEmpty());
+        if(record.getBoolean("outside_timeline"))record.put("diary_date",PartialDate.normalize(record.getString("diary_date")));
         record.put("categories",new JSONArray(store.get(id).categories)).put("tags",new JSONArray(store.get(id).tags)).put("temporary_tags",new JSONArray(store.strings("SELECT name FROM article_temporary_tags WHERE article_id=? ORDER BY name",id)));
         JSONArray people=new JSONArray();for(String person:store.strings("SELECT person_id FROM article_people WHERE article_id=? ORDER BY person_id",id))people.put(person(store,person));record.put("people",people);
         List<JSONObject> sorted=new ArrayList<>();for(int i=0;i<assets.length();i++)sorted.add(assets.getJSONObject(i));sorted.sort(Comparator.comparing(a->a.optString("relative_path")));JSONArray ordered=new JSONArray();for(JSONObject a:sorted)ordered.put(a);record.put("assets",ordered);return record;

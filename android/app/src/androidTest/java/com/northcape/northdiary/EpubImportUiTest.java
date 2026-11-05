@@ -19,7 +19,7 @@ public class EpubImportUiTest extends ActivityInstrumentationTestCase2<MainActiv
     public void testPreviewCancelRotationAndConfirmedImport()throws Throwable{
         current=getActivity();getInstrumentation().waitForIdleSync();EpubImportService.Preview first=prepare();File source=first.source;
         runTestOnUiThread(()->{current.showImportPreview(first);assertTrue(current.importPreviewDialog.isShowing());});assertEquals(0,count());
-        runTestOnUiThread(()->current.importPreviewDialog.getButton(AlertDialog.BUTTON_NEGATIVE).performClick());assertFalse(source.exists());assertEquals(0,count());
+        runTestOnUiThread(()->current.importPreviewDialog.getButton(AlertDialog.BUTTON_NEGATIVE).performClick());getInstrumentation().waitForIdleSync();assertFalse(source.exists());assertEquals(0,count());
         EpubImportService.Preview second=prepare();runTestOnUiThread(()->current.showImportPreview(second));
         Instrumentation.ActivityMonitor monitor=new Instrumentation.ActivityMonitor(MainActivity.class.getName(),null,false);getInstrumentation().addMonitor(monitor);runTestOnUiThread(current::recreate);current=(MainActivity)monitor.waitForActivityWithTimeout(10000);getInstrumentation().removeMonitor(monitor);assertNotNull(current);
         long until=android.os.SystemClock.uptimeMillis()+10000;boolean[] ready={false};

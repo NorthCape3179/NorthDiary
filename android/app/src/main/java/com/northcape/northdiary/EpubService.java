@@ -82,6 +82,10 @@ final class EpubService {
                     text(zip,"EPUB/content.opf","<?xml version=\"1.0\" encoding=\"UTF-8\"?><package xmlns=\"http://www.idpf.org/2007/opf\" version=\"3.0\" unique-identifier=\"bookid\"><metadata xmlns:dc=\"http://purl.org/dc/elements/1.1/\">"+metadata+"</metadata><manifest>"+manifest+"</manifest><spine>"+spine+"</spine></package>");
                 }
             }
+            try(ZipFile verify=new ZipFile(output)){
+                if(verify.size()>5000)throw new IOException("文集文件过多，请分批导出");long size=0;
+                for(Enumeration<? extends ZipEntry> all=verify.entries();all.hasMoreElements();){ZipEntry item=all.nextElement();size+=item.getSize();if(item.getSize()>32L*1024*1024||size>LIMIT)throw new IOException("生成后的文集过大，请分批导出");}
+            }
             return output;
         }catch(Exception e){output.delete();throw e;}
     }
