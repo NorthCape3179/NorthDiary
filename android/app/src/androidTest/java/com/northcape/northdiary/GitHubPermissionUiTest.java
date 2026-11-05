@@ -27,10 +27,21 @@ public class GitHubPermissionUiTest extends ActivityInstrumentationTestCase2<Mai
         runTestOnUiThread(()->{
             current.githubTransferDialog=new GitHubTransferDialog(current,false);
             EditText repository=current.githubTransferDialog.dialog.getWindow().getDecorView().findViewWithTag("github-repository");repository.setText("qa/NorthDiary-Data");
-            current.showWorkError(new GitHubPackagesApi.Failure("模拟仓库权限不足",404,true));assertTrue(current.githubAccessError.isShowing());current.githubAccessError.getButton(AlertDialog.BUTTON_POSITIVE).performClick();assertFalse(current.githubTransferDialog.dialog.isShowing());assertTrue(current.githubDialog.dialog.isShowing());assertTrue(choice().isChecked());current.githubDialog.dismiss();current.githubLogin();assertTrue(choice().isChecked());current.githubDialog.dismiss();
-            current.githubTransferDialog=new GitHubTransferDialog(current,false);EditText restored=current.githubTransferDialog.dialog.getWindow().getDecorView().findViewWithTag("github-repository");assertEquals("qa/NorthDiary-Data",restored.getText().toString());assertEquals("",current.getSharedPreferences("github-config",0).getString("repository",""));current.githubTransferDialog.dismiss();
+            current.showWorkError(new GitHubPackagesApi.Failure("模拟仓库权限不足",404,true));assertTrue("Permission error must be visible",current.githubAccessError.isShowing());
+            current.githubAccessError.getButton(AlertDialog.BUTTON_POSITIVE).performClick();
+        });
+        // Native AlertDialog buttons dispatch their callbacks through the UI message queue.
+        getInstrumentation().waitForIdleSync();
+        runTestOnUiThread(()->{
+            assertFalse("Transfer dialog closes before login",current.githubTransferDialog.dialog.isShowing());assertNotNull("Login dialog opens",current.githubDialog);assertTrue(current.githubDialog.dialog.isShowing());assertTrue("Repair requests repository access",choice().isChecked());
+            current.githubDialog.dismiss();current.githubLogin();assertTrue("Default checked choice survives another entry point",choice().isChecked());
+        });
+        getInstrumentation().waitForIdleSync();UiTestCapture.save(getInstrumentation(),"17-github-permission-choice");
+        runTestOnUiThread(()->{
+            current.githubDialog.dismiss();current.githubTransferDialog=new GitHubTransferDialog(current,false);EditText restored=current.githubTransferDialog.dialog.getWindow().getDecorView().findViewWithTag("github-repository");assertEquals("qa/NorthDiary-Data",restored.getText().toString());assertEquals("",current.getSharedPreferences("github-config",0).getString("repository",""));current.githubTransferDialog.dismiss();
         });
     }
+
     @Override protected void tearDown()throws Exception{
         if(current!=null){getInstrumentation().runOnMainSync(()->current.finish());getInstrumentation().waitForIdleSync();}Context c=getInstrumentation().getTargetContext();c.getSharedPreferences("archive",0).edit().putString("active",oldRoot).commit();SharedPreferences.Editor edit=c.getSharedPreferences("github-config",0).edit().clear();
         for(Map.Entry<String,?> entry:oldConfig.entrySet()){Object v=entry.getValue();String k=entry.getKey();if(v instanceof String)edit.putString(k,(String)v);else if(v instanceof Boolean)edit.putBoolean(k,(Boolean)v);else if(v instanceof Integer)edit.putInt(k,(Integer)v);else if(v instanceof Long)edit.putLong(k,(Long)v);else if(v instanceof Float)edit.putFloat(k,(Float)v);}edit.commit();if(root!=null)ArchiveService.remove(root);super.tearDown();
