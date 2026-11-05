@@ -1,0 +1,29 @@
+<resources>
+    <style name="ForestTheme" parent="android:style/Theme.Material.NoActionBar">
+        <item name="android:fontFamily">sans</item>
+        <item name="android:colorAccent">#A7B9AA</item>
+        <item name="android:windowLightStatusBar">false</item>
+        <item name="android:windowActionModeOverlay">true</item>
+        <item name="android:windowBackground">#18191C</item>
+        <item name="android:statusBarColor">#18191C</item>
+        <item name="android:navigationBarColor">#18191C</item>
+    </style>
+    <style name="AppTheme" parent="android:style/Theme.Material.Light.NoActionBar">
+        <item name="android:fontFamily">sans</item>
+        <item name="android:colorAccent">#494F58</item>
+        <item name="android:windowLightStatusBar">true</item>
+        <item name="android:windowActionModeOverlay">true</item>
+        <item name="android:windowBackground">#F1F2F3</item>
+        <item name="android:statusBarColor">#F1F2F3</item>
+        <item name="android:navigationBarColor">#F1F2F3</item>
+    </style>
+    <color name="paper">#F1F2F3</color>
+    <color name="card">#FCFCFD</color>
+    <color name="ink">#24272B</color>
+    <color name="muted">#686D74</color>
+    <color name="accent">#494F58</color>
+    <color name="soft">#E3E5E8</color>
+    <color name="line">#D6D9DE</color>
+    <color name="on_accent">#F9FAFB</color>
+    <color name="ripple">#22494F58</color>
+</resources>
