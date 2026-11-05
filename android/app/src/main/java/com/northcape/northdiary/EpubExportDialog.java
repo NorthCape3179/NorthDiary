@@ -16,6 +16,7 @@ final class EpubExportDialog extends Dialog {
     private final Bundle restored;
     private EditText title,author;
     private ListView list;
+    private ScrollView controls;
     private TextView count,error;
     AlertDialog groupDialog;
     EpubExportDialog(MainActivity host,DiaryStore store,Bundle restored){
@@ -34,15 +35,16 @@ final class EpubExportDialog extends Dialog {
     @Override protected void onCreate(Bundle state){
         super.onCreate(state);getWindow().setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE|WindowManager.LayoutParams.SOFT_INPUT_STATE_ALWAYS_HIDDEN);
         LinearLayout content=Ui.column(host);Ui.pad(content,20);content.setBackgroundColor(Ui.color(host,R.color.card));content.setFocusableInTouchMode(true);
-        content.addView(Ui.heading(host,"导出文集"));Ui.gap(content,8);
-        content.addView(Ui.text(host,"包含两个空间的已确认文章。生成阅读用电子书；完整恢复请使用 .ndiary 备份。",12,R.color.muted));Ui.gap(content,12);
-        title=Ui.input(host,"书名",true);title.setTag("epub-title");title.setText(restored==null?"NorthDiary 文集":restored.getString("title","NorthDiary 文集"));content.addView(title);Ui.gap(content,8);
-        author=Ui.input(host,"作者（选填）",true);author.setText(restored==null?"":restored.getString("author",""));content.addView(author);Ui.gap(content,8);
+        LinearLayout form=Ui.column(host);controls=new ScrollView(host);controls.setFillViewport(false);controls.addView(form);content.addView(controls,new LinearLayout.LayoutParams(-1,Ui.dp(host,280)));
+        form.addView(Ui.heading(host,"导出文集"));Ui.gap(form,8);
+        form.addView(Ui.text(host,"包含两个空间的已确认文章。生成阅读用电子书；完整恢复请使用 .ndiary 备份。",12,R.color.muted));Ui.gap(form,12);
+        title=Ui.input(host,"书名",true);title.setTag("epub-title");title.setText(restored==null?"NorthDiary 文集":restored.getString("title","NorthDiary 文集"));form.addView(title);Ui.gap(form,8);
+        author=Ui.input(host,"作者（选填）",true);author.setText(restored==null?"":restored.getString("author",""));form.addView(author);Ui.gap(form,8);
         LinearLayout groups=Ui.row(host);
         Button category=Ui.quiet(host,"按分类选择",()->chooseGroup("分类",categories));category.setEnabled(!categories.isEmpty());Ui.weighted(groups,category,1);
-        Button tag=Ui.quiet(host,"按标签选择",()->chooseGroup("标签",tags));tag.setEnabled(!tags.isEmpty());Ui.weighted(groups,tag,1);content.addView(groups);
-        LinearLayout actions=Ui.row(host);Ui.weighted(actions,Ui.quiet(host,"全选",()->select(null)),1);Ui.weighted(actions,Ui.quiet(host,"取消全选",()->select(Collections.emptySet())),1);content.addView(actions);
-        content.addView(Ui.text(host,"按分类或标签选择会替换勾选。长按章节可上下移动。",11,R.color.muted));
+        Button tag=Ui.quiet(host,"按标签选择",()->chooseGroup("标签",tags));tag.setEnabled(!tags.isEmpty());Ui.weighted(groups,tag,1);form.addView(groups);
+        LinearLayout actions=Ui.row(host);Ui.weighted(actions,Ui.quiet(host,"全选",()->select(null)),1);Ui.weighted(actions,Ui.quiet(host,"取消全选",()->select(Collections.emptySet())),1);form.addView(actions);
+        form.addView(Ui.text(host,"按分类或标签选择会替换勾选。长按章节可上下移动。",11,R.color.muted));
         count=Ui.text(host,"",12,R.color.accent);count.setPadding(0,Ui.dp(host,8),0,Ui.dp(host,8));content.addView(count);
         list=new ListView(host);list.setTag("epub-chapters");list.setChoiceMode(ListView.CHOICE_MODE_MULTIPLE);content.addView(list,new LinearLayout.LayoutParams(-1,0,1));
         list.setOnItemClickListener((p,v,i,id)->{if(list.isItemChecked(i))selected.add(rows.get(i).id);else selected.remove(rows.get(i).id);updateCount();});
@@ -51,7 +53,10 @@ final class EpubExportDialog extends Dialog {
         LinearLayout footer=Ui.row(host);Ui.weighted(footer,Ui.quiet(host,"取消",this::dismiss),1);Ui.weighted(footer,Ui.primary(host,"生成 EPUB",this::generate),1);content.addView(footer);
         setContentView(content,new ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT,ViewGroup.LayoutParams.MATCH_PARENT));content.requestFocus();render();
     }
-    @Override protected void onStart(){super.onStart();getWindow().setLayout(Math.min(Ui.dp(host,720),host.getResources().getDisplayMetrics().widthPixels),ViewGroup.LayoutParams.MATCH_PARENT);getWindow().setGravity(Gravity.CENTER);}
+    @Override protected void onStart(){
+        super.onStart();getWindow().setLayout(Math.min(Ui.dp(host,720),host.getResources().getDisplayMetrics().widthPixels),ViewGroup.LayoutParams.MATCH_PARENT);getWindow().setGravity(Gravity.CENTER);
+        LinearLayout.LayoutParams p=(LinearLayout.LayoutParams)controls.getLayoutParams();p.height=Ui.dp(host,Math.min(360,Math.max(96,host.getResources().getConfiguration().screenHeightDp-220)));controls.setLayoutParams(p);
+    }
     private void chooseGroup(String kind,Map<String,Set<String>> groups){
         List<String> names=new ArrayList<>(groups.keySet());String[] labels=new String[names.size()];for(int i=0;i<names.size();i++)labels[i]=names.get(i)+"（"+groups.get(names.get(i)).size()+" 篇）";
         groupDialog=new AlertDialog.Builder(host).setTitle("按"+kind+"选择").setItems(labels,(d,i)->select(groups.get(names.get(i)))).setNegativeButton("取消",null).show();
