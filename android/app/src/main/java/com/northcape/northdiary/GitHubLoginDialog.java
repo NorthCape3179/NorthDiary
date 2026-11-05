@@ -13,7 +13,7 @@ final class GitHubLoginDialog {
     private final Handler handler=new Handler(Looper.getMainLooper());private final ExecutorService worker=Executors.newSingleThreadExecutor();
     private final EditText client,token;private final TextView state,code;private final Button start,connect;
     private final CheckBox repositoryAccess;
-    private AlertDialog dialog;private volatile int generation=0;private int interval;private long expires;private String activeClient="";private GitHubAuthApi.Challenge challenge;
+    AlertDialog dialog;private volatile int generation=0;private int interval;private long expires;private String activeClient="";private GitHubAuthApi.Challenge challenge;
     private volatile boolean closed=false;private boolean working=false;
     GitHubLoginDialog(MainActivity host){
         this(host,false);
@@ -22,10 +22,13 @@ final class GitHubLoginDialog {
         this.host=host;credentials=new GitHubCredentialStore(host);LinearLayout content=Ui.column(host);Ui.pad(content,20);
         content.addView(Ui.heading(host,"连接 GitHub"));Ui.gap(content,8);
         content.addView(Ui.text(host,"授权在 GitHub 官方页面完成。要传输文集，请允许访问独立的私有数据仓库。",13,R.color.muted));Ui.gap(content,16);
-        state=Ui.text(host,credentials.login().isEmpty()?"尚未登录":"已保存账号 @"+credentials.login(),14,R.color.accent);content.addView(state);
+        state=Ui.text(host,savedStatus(),14,R.color.accent);state.setTag("github-auth-state");content.addView(state);
         Ui.section(content,"浏览器授权");
         client=Ui.input(host,"OAuth Client ID（与桌面端共用）",true);client.setText(host.getSharedPreferences("github-config",0).getString("client-id",""));content.addView(client);Ui.gap(content,8);
-        repositoryAccess=new CheckBox(host);repositoryAccess.setText("允许私有仓库读写（GitHub 文集导入/导出）");repositoryAccess.setChecked(forPackages);content.addView(repositoryAccess);
+        repositoryAccess=new CheckBox(host);repositoryAccess.setText("允许私有仓库读写（GitHub 文集导入/导出）");repositoryAccess.setTag("github-repository-access");repositoryAccess.setChecked(host.getSharedPreferences("github-config",0).getBoolean("request-repository-access",forPackages||credentials.authorization().equals("oauth-repo")));content.addView(repositoryAccess);
+        host.getSharedPreferences("github-config",0).edit().putBoolean("request-repository-access",repositoryAccess.isChecked()).apply();
+        repositoryAccess.setOnCheckedChangeListener((button,checked)->host.getSharedPreferences("github-config",0).edit().putBoolean("request-repository-access",checked).apply());
+        content.addView(Ui.text(host,"此勾选只决定下一次浏览器登录申请的权限。勾选后请重新开始登录，在 GitHub 完成授权，并等待本页显示已连接；仅勾选或验证账号不会升级旧凭据。",12,R.color.muted));
         content.addView(Ui.text(host,"首次填写自己的 OAuth 应用编号，并在 GitHub 应用设置中启用 Device Flow；不需要 Client Secret。",12,R.color.muted));Ui.gap(content,10);
         start=Ui.primary(host,"开始浏览器登录",this::start);content.addView(start);Ui.gap(content,10);
         code=Ui.text(host,"",23,R.color.accent);code.setTextIsSelectable(true);content.addView(code);
@@ -36,15 +39,16 @@ final class GitHubLoginDialog {
         }));Ui.gap(content,8);content.addView(Ui.quiet(host,"OAuth 应用设置",()->ArticleText.open(host,"https://github.com/settings/developers")));
         Ui.section(content,"或使用专用访问令牌");
         token=Ui.input(host,"粘贴 GitHub Personal access token",true);token.setInputType(InputType.TYPE_CLASS_TEXT|InputType.TYPE_TEXT_VARIATION_PASSWORD);content.addView(token);Ui.gap(content,10);
-        connect=Ui.button(host,"使用令牌连接",()->verify(token.getText().toString().trim(),++generation));content.addView(connect);Ui.gap(content,14);
+        connect=Ui.button(host,"使用令牌连接",()->verify(token.getText().toString().trim(),++generation,"pat"));content.addView(connect);Ui.gap(content,14);
         content.addView(Ui.text(host,"Fine-grained 令牌选择你的私有数据仓库，并授予 Contents 读写权限；只导入时可用只读权限。",12,R.color.muted));
         content.addView(Ui.text(host,"登录凭据使用本机 Android Keystore 加密保存，不进入日记备份。此版本不自动上传文章。",11,R.color.muted));
         if(!credentials.login().isEmpty()){
-            Ui.gap(content,14);content.addView(Ui.button(host,"重新验证已保存账号",()->{int id=++generation;job(id,()->api.user(credentials.token()),login->state.setText("已验证 @"+login));}));
+            Ui.gap(content,14);content.addView(Ui.button(host,"重新验证已保存账号",()->{int id=++generation;job(id,()->api.user(credentials.token()),login->state.setText("账号已验证 @"+login+"\n"+credentials.authorizationLabel()+"\n账号验证不代表已获得仓库权限。"));}));
             Ui.gap(content,8);content.addView(Ui.quiet(host,"退出本机登录",()->{cancel();try{credentials.clear();state.setText("已退出本机登录。GitHub 授权可在官网撤销。");host.refreshAccount();}catch(Exception e){Ui.error(host,e);}}));
         }
         dialog=new AlertDialog.Builder(host).setView(Ui.scroll(host,content)).setNegativeButton("关闭",(d,w)->{}).create();dialog.setOnDismissListener(d->close());dialog.show();
     }
+    private String savedStatus(){return credentials.login().isEmpty()?"尚未登录":"已保存账号 @"+credentials.login()+"\n"+credentials.authorizationLabel();}
     private interface Action<T>{T run()throws Exception;}private interface Result<T>{void accept(T value)throws Exception;}
     private <T> void job(int id,Action<T> action,Result<T> result){
         if(closed)return;working=true;buttons(false);
@@ -71,13 +75,13 @@ final class GitHubLoginDialog {
         if(SystemClock.elapsedRealtime()>=expires){state.setText("验证码已过期，请重新开始。");challenge=null;return;}
         GitHubAuthApi.Challenge current=challenge;
         job(id,()->api.poll(activeClient,current),result->{
-            if(result.state.equals("connected")){verify(result.token,id);return;}
+            if(result.state.equals("connected")){verify(result.token,id,result.repositoryAccess?"oauth-repo":"oauth-account");return;}
             if(result.state.equals("slow_down"))interval=Math.min(60,interval+5);schedule(id);
         });
     }
-    private void verify(String value,int id){
+    private void verify(String value,int id,String authorization){
         handler.removeCallbacksAndMessages(null);state.setText("正在验证 GitHub 账号…");
-        job(id,()->{String login=api.user(value);synchronized(this){if(closed||generation!=id)throw new CancellationException();credentials.save(value,login);}return login;},login->{challenge=null;code.setText("");token.getText().clear();state.setText("已连接 @"+login+"。可在设置中手动导入或导出 GitHub 文集。");host.refreshAccount();});
+        job(id,()->{String login=api.user(value);synchronized(this){if(closed||generation!=id)throw new CancellationException();credentials.save(value,login,authorization);}return login;},login->{challenge=null;code.setText("");token.getText().clear();state.setText("已连接 @"+login+"\n"+credentials.authorizationLabel()+"\n可返回设置，连接已有私有数据仓库。");host.refreshAccount();});
     }
     void dismiss(){if(dialog!=null)dialog.dismiss();}
     private synchronized void close(){if(closed)return;closed=true;generation++;handler.removeCallbacksAndMessages(null);worker.shutdownNow();}

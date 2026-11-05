@@ -17,8 +17,9 @@ final class GitHubAuthApi {
         Challenge(String userCode,String deviceCode,int interval,int expires,boolean repositoryAccess){this.userCode=userCode;this.deviceCode=deviceCode;this.interval=interval;this.expires=expires;this.repositoryAccess=repositoryAccess;}
     }
     static final class Poll {
-        final String state,token;
-        Poll(String state,String token){this.state=state;this.token=token;}
+        final String state,token;final boolean repositoryAccess;
+        Poll(String state,String token){this(state,token,false);}
+        Poll(String state,String token,boolean repositoryAccess){this.state=state;this.token=token;this.repositoryAccess=repositoryAccess;}
     }
     private final Transport transport;
     GitHubAuthApi(){this(new Network());}
@@ -42,8 +43,9 @@ final class GitHubAuthApi {
         if(error.equals("authorization_pending")||error.equals("slow_down"))return new Poll(error,"");
         if(!error.isEmpty())throw new IOException(error.equals("access_denied")?"已取消 GitHub 授权。":error.equals("expired_token")?"验证码已过期，请重新登录。":"GitHub 授权未完成，请重新开始。");
         String token=j.optString("access_token","");if(token.isEmpty()||token.length()>10000||!j.optString("token_type").equalsIgnoreCase("bearer"))throw new IOException("GitHub 未返回有效的访问凭据。");
-        if(challenge.repositoryAccess&&!Arrays.asList(j.optString("scope").split("[, ]+")).contains("repo"))throw new IOException("此次授权缺少私有仓库权限，请重新授权或使用有 Contents 读写权限的专用令牌");
-        return new Poll("connected",token);
+        boolean repositoryAccess=Arrays.asList(j.optString("scope").split("[, ]+")).contains("repo");
+        if(challenge.repositoryAccess&&!repositoryAccess)throw new IOException("此次授权缺少私有仓库权限，请重新授权或使用有 Contents 读写权限的专用令牌");
+        return new Poll("connected",token,repositoryAccess);
     }
     String user(String token)throws Exception {
         if(token.isEmpty()||token.length()>10000||token.contains("\n")||token.contains("\r"))throw new IOException("访问令牌格式无效。");

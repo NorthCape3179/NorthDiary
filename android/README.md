@@ -1,6 +1,14 @@
-# NorthDiary 安卓端 0.1.5-alpha
+# NorthDiary 安卓端 0.1.6-alpha
 
 原生 Android 应用，与 Windows 客户端并列放在本仓库。使用 Java 17、Android 原生视图和 SQLite，无运行时第三方依赖，不使用网页应用框架。
+
+## 0.1.6 GitHub 授权修复
+
+- 保存私有仓库权限勾选，关闭再打开保持选择；该选择仅用于下一次授权，不代表已保存凭据已获权限。账号验证不会冒充仓库授权验证。
+- 凭据与来源类型一起原子保存：OAuth repo / 仅账号 / 专用令牌 / 旧版未知。旧登录不丢失，需重新登录后升级；专用令牌权限以实际仓库连接结果为准。
+- 区分仓库元数据访问失败与默认分支数据标识读取失败。前者提供重新授权入口，后者提示分支、数据标识和 Contents 读取权限，不引导重新初始化已有数据仓库。
+- 调整授权前保存待连接的仓库名；尚未连接的草稿不充当已验证仓库。初始化仍需显式确认且仅允许空私有仓库。
+- 回归覆盖勾选关闭重开及活动重建、授权元数据保存/迁移/清除、失败不替换旧凭据、仓库与标识的 404 区分。真实个人仓库授权及连接需用户更新后验证。
 
 ## 0.1.5 GitHub 文集传输与灰色主题
 
@@ -83,7 +91,7 @@ gradle :app:testDebugUnitTest :app:lintDebug :app:assembleDebug
 gradle :app:connectedDebugAndroidTest
 ```
 
-源码工程尚未包含 Gradle wrapper；请使用 Gradle 8.9。仓库 Actions 的 **Android alpha** 流程自动配置工具链，生成 `NorthDiary-android-0.1.5-alpha` artifact，里面的 `app-debug.apk` 可安装。调试签名缓存失效时，后续 APK 可能无法直接覆盖安装；请先备份，正式发布前需配置持久发行签名。
+源码工程尚未包含 Gradle wrapper；请使用 Gradle 8.9。仓库 Actions 的 **Android alpha** 流程自动配置工具链，生成 `NorthDiary-android-0.1.6-alpha` artifact，里面的 `app-debug.apk` 可安装。调试签名缓存失效时，后续 APK 可能无法直接覆盖安装；请先备份，正式发布前需配置持久发行签名。
 
 ## 验证范围
 

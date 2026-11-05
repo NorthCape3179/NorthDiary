@@ -19,7 +19,7 @@ public final class MainActivity extends Activity {
     private LinearLayout root,workspace;
     private EditorPanel editor;
     private MemoryPanel memories;
-    private GitHubLoginDialog githubDialog;
+    GitHubLoginDialog githubDialog;
     GitHubTransferDialog githubTransferDialog;
     private String activeId,pendingImageId,exportPath;
     String query="",tag="",category="",lastRandomId="";
@@ -236,8 +236,15 @@ public final class MainActivity extends Activity {
         if(busy)return;busy=true;AlertDialog progress=new AlertDialog.Builder(this).setTitle(title).setMessage("正在处理，请稍候。").setCancelable(false).create();fileProgress=progress;progress.show();
         new Thread(()->{
             try{T result=action.run();runOnUiThread(()->{progress.dismiss();if(isDestroyed()){busy=false;if(result instanceof EpubImportService.Preview)((EpubImportService.Preview)result).close(false);store.close();return;}busy=false;try{done.accept(result);}catch(Exception e){Ui.error(this,e);}});}
-            catch(Exception e){runOnUiThread(()->{busy=false;progress.dismiss();if(isDestroyed()){store.close();return;}Ui.error(this,e);});}
+            catch(Exception e){runOnUiThread(()->{busy=false;progress.dismiss();if(isDestroyed()){store.close();return;}showWorkError(e);});}
         },"northdiary-files").start();
+    }
+    AlertDialog githubAccessError;
+    void showWorkError(Exception error){
+        if(error instanceof GitHubPackagesApi.Failure&&(((GitHubPackagesApi.Failure)error).repositoryAccess||((GitHubPackagesApi.Failure)error).status==401)){
+            githubAccessError=new AlertDialog.Builder(this).setTitle("GitHub 仓库访问未完成").setMessage(error.getMessage())
+                .setPositiveButton("调整登录授权",(d,w)->{if(githubTransferDialog!=null)githubTransferDialog.dismiss();githubLoginForPackages();}).setNegativeButton("返回检查",null).show();
+        }else Ui.error(this,error);
     }
     void exportBackup(){work("准备完整备份",()->ArchiveService.export(this,store),file->{exportPath=file.getPath();Intent i=new Intent(Intent.ACTION_CREATE_DOCUMENT).setType("application/octet-stream").addCategory(Intent.CATEGORY_OPENABLE).putExtra(Intent.EXTRA_TITLE,"NorthDiary-"+java.time.LocalDate.now()+".ndiary");startActivityForResult(i,103);});}
     void prepareEpub(List<String> ids,String title,String author){
@@ -302,5 +309,5 @@ public final class MainActivity extends Activity {
         state.putString("image",pendingImageId);state.putString("export",exportPath);super.onSaveInstanceState(state);
     }
     @Override public void onBackPressed(){if(busy)return;if(activeId!=null&&(tab==0||tab==3))backFromArticle();else if(tab!=0)navigate(0);else if(saveEditor(true))super.onBackPressed();}
-    @Override protected void onDestroy(){handler.removeCallbacksAndMessages(null);if(githubDialog!=null)githubDialog.dismiss();if(githubTransferDialog!=null)githubTransferDialog.dismiss();if(epubDialog!=null)epubDialog.dismiss();if(randomDialog!=null)randomDialog.dismiss();if(importPreviewDialog!=null)importPreviewDialog.dismiss();if(fileProgress!=null)fileProgress.dismiss();if(pendingEpubImport!=null)pendingEpubImport.close(isChangingConfigurations());if(store!=null&&!busy)store.close();super.onDestroy();}
+    @Override protected void onDestroy(){handler.removeCallbacksAndMessages(null);if(githubAccessError!=null)githubAccessError.dismiss();if(githubDialog!=null)githubDialog.dismiss();if(githubTransferDialog!=null)githubTransferDialog.dismiss();if(epubDialog!=null)epubDialog.dismiss();if(randomDialog!=null)randomDialog.dismiss();if(importPreviewDialog!=null)importPreviewDialog.dismiss();if(fileProgress!=null)fileProgress.dismiss();if(pendingEpubImport!=null)pendingEpubImport.close(isChangingConfigurations());if(store!=null&&!busy)store.close();super.onDestroy();}
 }

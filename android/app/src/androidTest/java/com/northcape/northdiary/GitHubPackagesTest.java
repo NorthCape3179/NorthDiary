@@ -58,6 +58,14 @@ public class GitHubPackagesTest extends AndroidTestCase {
         GitHubPackagesApi.Package pack=api.list(REPO).get(0);remote.corrupt=true;int before=Objects.requireNonNull(root.list()).length;try{api.download(REPO,pack);fail();}catch(IOException expected){}assertEquals(before,Objects.requireNonNull(root.list()).length);
         for(int code:new int[]{401,403,404,409,422,429}){remote.forced=code;try{api.checkRepository(REPO);fail();}catch(GitHubPackagesApi.Failure expected){assertEquals(code,expected.status);assertFalse(expected.getMessage().contains(TOKEN));}}
     }
+    public void testRepositoryAccessFailureAndMissingMarkerAreDistinguished()throws Exception {
+        Fake remote=new Fake();remote.forced=404;GitHubPackagesApi api=new GitHubPackagesApi(root,TOKEN,remote);
+        try{api.checkRepository(REPO);fail();}catch(GitHubPackagesApi.Failure expected){assertTrue(expected.repositoryAccess);assertTrue(expected.getMessage().contains("手机凭据"));assertEquals(404,expected.status);}
+        assertEquals(1,remote.calls);assertEquals(0,remote.puts);
+        remote.forced=0;remote.initialized=false;
+        try{api.checkRepository(REPO);fail();}catch(GitHubPackagesApi.Failure expected){assertFalse(expected.repositoryAccess);assertTrue(expected.getMessage().contains("已找到私有仓库"));assertTrue(expected.getMessage().contains("notes/main"));assertTrue(expected.getMessage().contains(GitHubPackagesApi.MARKER));assertTrue(expected.getMessage().contains("请勿重复初始化"));}
+        assertEquals(0,remote.puts);api.initializeRepository(REPO);assertEquals(1,remote.puts);
+    }
     public void testStreamingBodyAndPackageSizeGuard()throws Exception{
         ByteArrayOutputStream bytes=new ByteArrayOutputStream();GitHubPackagesApi.writeUploadBody(bytes,new JSONObject().put("message","测试上传").put("branch","notes/main"),book);JSONObject json=new JSONObject(bytes.toString("UTF-8"));assertEquals("notes/main",json.getString("branch"));assertTrue(Arrays.equals(data,Base64.decode(json.getString("content"),Base64.DEFAULT)));
         File big=new File(root,"large.epub");try(RandomAccessFile file=new RandomAccessFile(big,"rw")){file.setLength(GitHubPackagesApi.MAX_PACKAGE+1);}Fake remote=new Fake();try{new GitHubPackagesApi(root,TOKEN,remote).upload(REPO,big);fail();}catch(IOException expected){}assertEquals(0,remote.calls);

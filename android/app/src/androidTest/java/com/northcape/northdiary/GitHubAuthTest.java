@@ -11,7 +11,7 @@ public class GitHubAuthTest extends AndroidTestCase {
             if(url.equals(GitHubAuthApi.DEVICE)){assertEquals("read:user repo",form.get("scope"));return new JSONObject("{\"verification_uri\":\"https://github.com/login/device\",\"user_code\":\"ABCD-EFGH\",\"device_code\":\"device\",\"interval\":5,\"expires_in\":900}");}
             return new JSONObject("{\"access_token\":\"dummy-test-token\",\"token_type\":\"bearer\",\"scope\":\"read:user,repo\"}");
         });
-        GitHubAuthApi.Challenge challenge=api.start("test-client",true);assertTrue(challenge.repositoryAccess);assertEquals("connected",api.poll("test-client",challenge).state);
+        GitHubAuthApi.Challenge challenge=api.start("test-client",true);assertTrue(challenge.repositoryAccess);GitHubAuthApi.Poll authorized=api.poll("test-client",challenge);assertEquals("connected",authorized.state);assertTrue(authorized.repositoryAccess);
         GitHubAuthApi missing=new GitHubAuthApi((u,t,f)->new JSONObject("{\"access_token\":\"dummy-test-token\",\"token_type\":\"bearer\",\"scope\":\"read:user\"}"));
         try{missing.poll("test-client",challenge);fail();}catch(IOException expected){assertTrue(expected.getMessage().contains("私有仓库"));}
     }
@@ -31,6 +31,19 @@ public class GitHubAuthTest extends AndroidTestCase {
         GitHubAuthApi denied=new GitHubAuthApi((u,t,f)->new JSONObject("{\"error\":\"access_denied\"}"));
         try{denied.poll("test-client",new GitHubAuthApi.Challenge("ABCD","device",5,900));fail();}catch(IOException expected){}
         try{denied.user("unsafe\r\nheader");fail();}catch(IOException expected){}
+    }
+    public void testAuthorizationMetadataAtomicReplacementAndLegacyCompatibility()throws Exception {
+        String namespace="github-metadata-"+UUID.randomUUID();GitHubCredentialStore vault=new GitHubCredentialStore(getContext(),namespace);
+        try{
+            vault.save("dummy-old-token","test-account");assertEquals("unknown",vault.authorization());
+            vault.save("dummy-new-token","test-account","oauth-repo");
+            GitHubCredentialStore reopened=new GitHubCredentialStore(getContext(),namespace);assertEquals("oauth-repo",reopened.authorization());assertEquals("dummy-new-token",reopened.token());
+            try{reopened.save("dummy-invalid","other-account","invalid-type");fail();}catch(IOException expected){}
+            assertEquals("dummy-new-token",reopened.token());assertEquals("test-account",reopened.login());assertEquals("oauth-repo",reopened.authorization());
+            vault.save("dummy-pat","test-account","pat");assertTrue(vault.authorizationLabel().contains("连接结果"));
+            vault.save("dummy-account-only","test-account","oauth-account");assertTrue(vault.authorizationLabel().contains("重新授权"));
+            vault.clear();assertEquals("unknown",vault.authorization());assertEquals("",vault.login());
+        }finally{vault.clear();}
     }
     public void testCredentialEncryptionAndForgetAreIndependentOfDiaryBackup()throws Exception {
         String namespace="github-test-"+UUID.randomUUID(),secret="dummy-test-credential-never-used-on-network";GitHubCredentialStore vault=new GitHubCredentialStore(getContext(),namespace);

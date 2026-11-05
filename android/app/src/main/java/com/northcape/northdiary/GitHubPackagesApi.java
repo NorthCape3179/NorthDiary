@@ -17,7 +17,11 @@ import java.util.zip.*;
 final class GitHubPackagesApi {
     static final long MAX_PACKAGE=20L*1024*1024;
     static final String MARKER="northdiary-data.json",NAME="[0-9]{8}T[0-9]{12}Z-[0-9a-f]{32}\\.epub";
-    static final class Failure extends IOException {final int status;Failure(String message,int status){super(message);this.status=status;}}
+    static final class Failure extends IOException {
+        final int status;final boolean repositoryAccess;
+        Failure(String message,int status){this(message,status,false);}
+        Failure(String message,int status,boolean repositoryAccess){super(message);this.status=status;this.repositoryAccess=repositoryAccess;}
+    }
     static final class Response {final int status;final byte[] body;Response(int status,byte[] body){this.status=status;this.body=body;}Response(int status,String body){this(status,body.getBytes(StandardCharsets.UTF_8));}}
     interface Transport {Response request(String method,String path,String token,JSONObject body,File upload,boolean raw,File destination,long limit)throws Exception;}
     static final class Repository {final String name,branch;final boolean writable;Repository(String name,String branch,boolean writable){this.name=name;this.branch=branch;this.writable=writable;}}
@@ -42,7 +46,11 @@ final class GitHubPackagesApi {
         try{return new JSONObject(new String(call(method,path,body,null,false,null,2*1024*1024).body,StandardCharsets.UTF_8));}catch(JSONException e){throw new IOException("GitHub 返回的数据格式无效，请重试");}
     }
     private Repository metadata(String name)throws Exception{
-        repositoryName(name);JSONObject json=object("GET","/repos/"+name,null);
+        repositoryName(name);JSONObject json;
+        try{json=object("GET","/repos/"+name,null);}catch(Failure e){
+            if(e.status==404||e.status==403)throw new Failure("当前手机凭据无法读取仓库 "+name+"（HTTP "+e.status+"）。如果 PC 能连接，请核对手机登录账号和仓库名；勾选私有仓库权限后重新完成浏览器登录，或使用已选择此仓库的专用令牌。GitHub 权限不足也可能返回 404。",e.status,true);
+            throw e;
+        }
         if(json.opt("private")!=Boolean.TRUE)throw new IOException("只允许连接 Private 私有数据仓库，请先检查仓库可见性");
         if(!json.optString("full_name").equalsIgnoreCase(name))throw new IOException("仓库名称不一致，请使用当前完整仓库名");
         String branch=json.optString("default_branch");if(branch.isEmpty()||branch.length()>255||branch.chars().anyMatch(c->c<32||c==127))throw new IOException("仓库默认分支无效");
@@ -54,7 +62,14 @@ final class GitHubPackagesApi {
         try{json=ExchangeRecords.parse(new String(response.body,StandardCharsets.UTF_8));}catch(Exception e){throw new IOException("数据仓库标识损坏，未读取或写入文章包");}
         Object version=json.opt("version");if(json.length()!=2||!json.optString("format").equals("NorthDiaryData")||!(version instanceof Integer||version instanceof Long)||((Number)version).longValue()!=1)throw new IOException("这不是受支持的 NorthDiary 数据仓库，请连接或初始化空的私有数据仓库");
     }
-    Repository checkRepository(String name)throws Exception{Repository repo=metadata(name);marker(repo);return repo;}
+    Repository checkRepository(String name)throws Exception{
+        Repository repo=metadata(name);
+        try{marker(repo);}catch(Failure e){
+            if(e.status==404)throw new Failure("已找到私有仓库 "+name+"，但无法读取默认分支 "+repo.branch+" 的 "+MARKER+"（HTTP 404）。请核对与 PC 使用的是同一仓库和分支，专用令牌需要 Contents 读取权限。已有数据仓库请勿重复初始化。",e.status);
+            if(e.status==403)throw new Failure("已找到私有仓库，但 GitHub 拒绝读取数据标识（HTTP 403）。请检查 Contents 读取权限或稍后重试。",e.status,true);
+            throw e;
+        }return repo;
+    }
     Repository initializeRepository(String name)throws Exception{
         Repository repo=metadata(name);if(!repo.writable)throw new IOException("当前登录没有仓库写入权限");
         try{marker(repo);return repo;}catch(Failure e){if(e.status!=404)throw e;}
