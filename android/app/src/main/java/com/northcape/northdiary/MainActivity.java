@@ -86,7 +86,8 @@ public final class MainActivity extends Activity {
             if(activeId!=null) {
                 Article a=supplied!=null?supplied:store.get(activeId);editor=new EditorPanel(this,store,a,editing);
                 LinearLayout.LayoutParams pane=new LinearLayout.LayoutParams(0,-1,1);pane.setMargins(Ui.dp(this,wide?8:12),0,Ui.dp(this,wide?20:12),0);editor.setBackground(Ui.surface(this,R.color.card,24,true));workspace.addView(editor,pane);
-                editor.post(()->editor.scrollTo(0,scroll));
+                EditorPanel shown=editor;int position=scroll;
+                shown.post(()->{if(editor==shown&&!isDestroyed())shown.scrollTo(0,position);});
             } else if(wide) {
                 View welcome=Ui.empty(this,"留一页，给此刻。","选择一篇回忆，或开始记录新的故事。","写一篇回忆",this::newArticle);
                 welcome.setBackground(Ui.surface(this,R.color.card,24,true));LinearLayout.LayoutParams p=new LinearLayout.LayoutParams(0,-1,1);p.setMargins(Ui.dp(this,8),0,Ui.dp(this,20),0);workspace.addView(welcome,p);
