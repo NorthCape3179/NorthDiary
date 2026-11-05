@@ -6,6 +6,15 @@ import java.io.IOException;
 import java.util.UUID;
 
 public class GitHubAuthTest extends AndroidTestCase {
+    public void testRepositoryScopeIsExplicitAndRequiredWhenRequested()throws Exception {
+        GitHubAuthApi api=new GitHubAuthApi((url,token,form)->{
+            if(url.equals(GitHubAuthApi.DEVICE)){assertEquals("read:user repo",form.get("scope"));return new JSONObject("{\"verification_uri\":\"https://github.com/login/device\",\"user_code\":\"ABCD-EFGH\",\"device_code\":\"device\",\"interval\":5,\"expires_in\":900}");}
+            return new JSONObject("{\"access_token\":\"dummy-test-token\",\"token_type\":\"bearer\",\"scope\":\"read:user,repo\"}");
+        });
+        GitHubAuthApi.Challenge challenge=api.start("test-client",true);assertTrue(challenge.repositoryAccess);assertEquals("connected",api.poll("test-client",challenge).state);
+        GitHubAuthApi missing=new GitHubAuthApi((u,t,f)->new JSONObject("{\"access_token\":\"dummy-test-token\",\"token_type\":\"bearer\",\"scope\":\"read:user\"}"));
+        try{missing.poll("test-client",challenge);fail();}catch(IOException expected){assertTrue(expected.getMessage().contains("私有仓库"));}
+    }
     public void testDeviceFlowPendingSlowDownSuccessAndAccountValidation()throws Exception {
         int[] calls={0};GitHubAuthApi api=new GitHubAuthApi((url,token,form)->{
             if(url.equals(GitHubAuthApi.DEVICE)){assertEquals("read:user",form.get("scope"));assertEquals("",token);return new JSONObject("{\"verification_uri\":\"https://github.com/login/device\",\"user_code\":\"ABCD-EFGH\",\"device_code\":\"test-device\",\"interval\":5,\"expires_in\":900}");}

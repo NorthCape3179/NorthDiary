@@ -12,7 +12,7 @@ final class Ui {
     static int color(Context c,int resource){
         if(Appearance.choice(c).equals("forest")){
             int[] ids={R.color.paper,R.color.card,R.color.ink,R.color.muted,R.color.accent,R.color.soft,R.color.line,R.color.on_accent,R.color.ripple};
-            int[] colors={0xFF17231E,0xFF203229,0xFFE4EDE3,0xFFA4B8A8,0xFFA4CFAB,0xFF304B39,0xFF385242,0xFF173020,0x33A4CFAB};
+            int[] colors={0xFF18191C,0xFF24262A,0xFFECEFED,0xFFA7ADA9,0xFFA7B9AA,0xFF303633,0xFF3B423D,0xFF18201B,0x33A7B9AA};
             for(int i=0;i<ids.length;i++)if(ids[i]==resource)return colors[i];
         }
         return c.getColor(resource);
@@ -22,7 +22,7 @@ final class Ui {
     static LinearLayout column(Context c){LinearLayout l=new LinearLayout(c);l.setOrientation(LinearLayout.VERTICAL);return l;}
     static LinearLayout row(Context c){LinearLayout l=new LinearLayout(c);l.setOrientation(LinearLayout.HORIZONTAL);l.setGravity(Gravity.CENTER_VERTICAL);return l;}
     static void pad(View v,int n){int p=dp(v.getContext(),n);v.setPadding(p,p,p,p);}
-    static TextView text(Context c,String text,int size,int color){TextView t=new TextView(c);t.setText(text);t.setTextSize(size);t.setTextColor(Ui.color(c,color));t.setFontFeatureSettings("kern");t.setLineSpacing(dp(c,2),1.05f);return t;}
+    static TextView text(Context c,String text,int size,int color){TextView t=new TextView(c);t.setText(text);t.setTextSize(size);t.setTextColor(Ui.color(c,color));t.setLinkTextColor(Ui.color(c,R.color.accent));t.setFontFeatureSettings("kern");t.setLineSpacing(dp(c,2),1.05f);return t;}
     static TextView heading(Context c,String text){TextView t=text(c,text,24,R.color.ink);t.setTypeface(Typeface.create("sans-serif-medium",Typeface.NORMAL));return t;}
     static GradientDrawable surface(Context c,int color,float radius,boolean border){GradientDrawable d=new GradientDrawable();d.setColor(Ui.color(c,color));d.setCornerRadius(dp(c,radius));if(border)d.setStroke(dp(c,1),Ui.color(c,R.color.line));return d;}
     static Drawable ripple(Context c,int color,float radius,boolean border){return new RippleDrawable(ColorStateList.valueOf(Ui.color(c,R.color.ripple)),surface(c,color,radius,border),surface(c,R.color.ink,radius,false));}

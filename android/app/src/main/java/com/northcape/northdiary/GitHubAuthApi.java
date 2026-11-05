@@ -7,13 +7,14 @@ import java.io.*;
 import java.nio.charset.StandardCharsets;
 import java.util.*;
 
-/** Account authorization only; never transfers diary data. */
+/** Explicit account-only or private-repository device authorization. */
 final class GitHubAuthApi {
     static final String DEVICE="https://github.com/login/device/code",TOKEN="https://github.com/login/oauth/access_token",USER="https://api.github.com/user";
     interface Transport {JSONObject request(String url,String token,Map<String,String> form)throws Exception;}
     static final class Challenge {
-        final String userCode,deviceCode;final int interval,expires;
-        Challenge(String userCode,String deviceCode,int interval,int expires){this.userCode=userCode;this.deviceCode=deviceCode;this.interval=interval;this.expires=expires;}
+        final String userCode,deviceCode;final int interval,expires;final boolean repositoryAccess;
+        Challenge(String userCode,String deviceCode,int interval,int expires){this(userCode,deviceCode,interval,expires,false);}
+        Challenge(String userCode,String deviceCode,int interval,int expires,boolean repositoryAccess){this.userCode=userCode;this.deviceCode=deviceCode;this.interval=interval;this.expires=expires;this.repositoryAccess=repositoryAccess;}
     }
     static final class Poll {
         final String state,token;
@@ -23,14 +24,17 @@ final class GitHubAuthApi {
     GitHubAuthApi(){this(new Network());}
     GitHubAuthApi(Transport transport){this.transport=transport;}
     Challenge start(String client)throws Exception {
+        return start(client,false);
+    }
+    Challenge start(String client,boolean repositoryAccess)throws Exception {
         if(!client.matches("[A-Za-z0-9_.-]{1,100}"))throw new IOException("请填写桌面端使用的 OAuth Client ID，并确认该应用已启用设备授权。");
-        Map<String,String> form=new LinkedHashMap<>();form.put("client_id",client);form.put("scope","read:user");
+        Map<String,String> form=new LinkedHashMap<>();form.put("client_id",client);form.put("scope",repositoryAccess?"read:user repo":"read:user");
         JSONObject j=transport.request(DEVICE,"",form);
         if(j.has("error"))throw new IOException("无法开始授权，请确认 Client ID 正确且已启用设备授权。");
         String user=j.optString("user_code"),device=j.optString("device_code");int interval=j.optInt("interval",5),expires=j.optInt("expires_in");
         if(!"https://github.com/login/device".equals(j.optString("verification_uri"))||!user.matches("[A-Z0-9-]{4,32}")||device.isEmpty()||device.length()>1024||interval<5||interval>60||expires<1||expires>1800)
             throw new IOException("GitHub 授权响应无效，请重试。");
-        return new Challenge(user,device,interval,expires);
+        return new Challenge(user,device,interval,expires,repositoryAccess);
     }
     Poll poll(String client,Challenge challenge)throws Exception {
         Map<String,String> form=new LinkedHashMap<>();form.put("client_id",client);form.put("device_code",challenge.deviceCode);form.put("grant_type","urn:ietf:params:oauth:grant-type:device_code");
@@ -38,6 +42,7 @@ final class GitHubAuthApi {
         if(error.equals("authorization_pending")||error.equals("slow_down"))return new Poll(error,"");
         if(!error.isEmpty())throw new IOException(error.equals("access_denied")?"已取消 GitHub 授权。":error.equals("expired_token")?"验证码已过期，请重新登录。":"GitHub 授权未完成，请重新开始。");
         String token=j.optString("access_token","");if(token.isEmpty()||token.length()>10000||!j.optString("token_type").equalsIgnoreCase("bearer"))throw new IOException("GitHub 未返回有效的访问凭据。");
+        if(challenge.repositoryAccess&&!Arrays.asList(j.optString("scope").split("[, ]+")).contains("repo"))throw new IOException("此次授权缺少私有仓库权限，请重新授权或使用有 Contents 读写权限的专用令牌");
         return new Poll("connected",token);
     }
     String user(String token)throws Exception {

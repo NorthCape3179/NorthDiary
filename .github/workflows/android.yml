@@ -43,7 +43,7 @@ jobs:
       - run: gradle --no-daemon :app:testDebugUnitTest :app:lintDebug :app:assembleDebug :app:assembleDebugAndroidTest
       - uses: actions/upload-artifact@v4
         with:
-          name: NorthDiary-android-0.1.4-alpha
+          name: NorthDiary-android-0.1.5-alpha
           path: android/app/build/outputs/apk/debug/*.apk
       - uses: actions/upload-artifact@v4
         if: always()

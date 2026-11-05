@@ -20,6 +20,7 @@ public final class MainActivity extends Activity {
     private EditorPanel editor;
     private MemoryPanel memories;
     private GitHubLoginDialog githubDialog;
+    GitHubTransferDialog githubTransferDialog;
     private String activeId,pendingImageId,exportPath;
     String query="",tag="",category="",lastRandomId="";
     EpubExportDialog epubDialog;
@@ -186,13 +187,31 @@ public final class MainActivity extends Activity {
     void restoreArticle(String id){try{store.deleted(id,false);activeId=null;editing=false;build(null);}catch(Exception e){Ui.error(this,e);}}
     private View settings() {return new SettingsPanel(this,store);}
     void githubLogin(){githubDialog=new GitHubLoginDialog(this);}
+    void githubLoginForPackages(){githubDialog=new GitHubLoginDialog(this,true);}
+    DiaryStore diaryStore(){return store;}
+    GitHubPackagesApi githubPackages()throws Exception{
+        String token;try{token=new GitHubCredentialStore(this).token();}catch(Exception e){throw new IOException("无法读取已保存的登录，请重新登录 GitHub");}
+        return new GitHubPackagesApi(getCacheDir(),token);
+    }
+    void githubTransfers(){if(!busy&&saveEditor(true))githubTransferDialog=new GitHubTransferDialog(this,true);}
+    void githubExport(){if(busy||!saveEditor(true))return;String name=getSharedPreferences("github-config",0).getString("repository","");if(name.isEmpty())githubTransferDialog=new GitHubTransferDialog(this,false);else startGitHubExport(name);}
+    void startGitHubExport(String repository){
+        if(busy||!saveEditor(true))return;work("检查私有数据仓库",()->githubPackages().checkRepository(repository),repo->{
+            if(!repo.writable)throw new IOException("当前登录没有仓库写入权限，请重新授权或使用 Contents 读写令牌");
+            if(!getSharedPreferences("github-config",0).edit().putString("repository",repo.name).commit())throw new IOException("仓库设置保存失败");
+            if(githubTransferDialog!=null)githubTransferDialog.dismiss();Bundle state=new Bundle();state.putString("githubRepository",repo.name);showEpubExport(state);
+        });
+    }
+    void prepareGitHubEpub(String repository,List<String> ids,String title,String author){
+        work("导出并上传到 GitHub",()->{File file=EpubService.export(this,store,ids,title,author);try{return githubPackages().upload(repository,file);}finally{file.delete();}},name->new AlertDialog.Builder(this).setTitle("GitHub 文集已导出").setMessage("私有仓库："+repository+"\n\n"+name+"\n\n可在其他设备连接同一数据仓库，下载并预览导入。").setPositiveButton("完成",null).show());
+    }
     void refreshAccount(){if(tab==2&&!isDestroyed())build(null);}
     AlertDialog themeDialog;
     void showThemePicker(){
         String[] values={"system","light","dark","forest"};String selected=Appearance.choice(this);int index=0;
         for(int i=0;i<values.length;i++)if(values[i].equals(selected))index=i;
         themeDialog=new AlertDialog.Builder(this).setTitle("界面主题")
-            .setSingleChoiceItems(new String[]{"跟随系统","浅色 · 米色与红酒","深色 · 暮色酒红","深色 · 森林绿"},index,(dialog,i)->{dialog.dismiss();setThemeChoice(values[i]);})
+            .setSingleChoiceItems(new String[]{"跟随系统","浅色 · 灰白","深色 · 黑灰","深色 · 绿灰"},index,(dialog,i)->{dialog.dismiss();setThemeChoice(values[i]);})
             .setNegativeButton("取消",null).show();
     }
     void setThemeChoice(String choice){
@@ -211,9 +230,9 @@ public final class MainActivity extends Activity {
         .setNegativeButton("取消",null).show();}
     private void chooseDocument(int code,String mime){Intent i=new Intent(Intent.ACTION_OPEN_DOCUMENT).setType(mime).addCategory(Intent.CATEGORY_OPENABLE);startActivityForResult(i,code);}
     void pickImage(){if(!saveEditor(true))return;pendingImageId=activeId;chooseDocument(101,"image/*");}
-    private interface Work<T>{T run()throws Exception;}
-    private interface Done<T>{void accept(T result)throws Exception;}
-    private <T> void work(String title,Work<T> action,Done<T> done) {
+    interface Work<T>{T run()throws Exception;}
+    interface Done<T>{void accept(T result)throws Exception;}
+    <T> void work(String title,Work<T> action,Done<T> done) {
         if(busy)return;busy=true;AlertDialog progress=new AlertDialog.Builder(this).setTitle(title).setMessage("正在处理，请稍候。").setCancelable(false).create();fileProgress=progress;progress.show();
         new Thread(()->{
             try{T result=action.run();runOnUiThread(()->{progress.dismiss();if(isDestroyed()){busy=false;if(result instanceof EpubImportService.Preview)((EpubImportService.Preview)result).close(false);store.close();return;}busy=false;try{done.accept(result);}catch(Exception e){Ui.error(this,e);}});}
@@ -283,5 +302,5 @@ public final class MainActivity extends Activity {
         state.putString("image",pendingImageId);state.putString("export",exportPath);super.onSaveInstanceState(state);
     }
     @Override public void onBackPressed(){if(busy)return;if(activeId!=null&&(tab==0||tab==3))backFromArticle();else if(tab!=0)navigate(0);else if(saveEditor(true))super.onBackPressed();}
-    @Override protected void onDestroy(){handler.removeCallbacksAndMessages(null);if(githubDialog!=null)githubDialog.dismiss();if(epubDialog!=null)epubDialog.dismiss();if(randomDialog!=null)randomDialog.dismiss();if(importPreviewDialog!=null)importPreviewDialog.dismiss();if(fileProgress!=null)fileProgress.dismiss();if(pendingEpubImport!=null)pendingEpubImport.close(isChangingConfigurations());if(store!=null&&!busy)store.close();super.onDestroy();}
+    @Override protected void onDestroy(){handler.removeCallbacksAndMessages(null);if(githubDialog!=null)githubDialog.dismiss();if(githubTransferDialog!=null)githubTransferDialog.dismiss();if(epubDialog!=null)epubDialog.dismiss();if(randomDialog!=null)randomDialog.dismiss();if(importPreviewDialog!=null)importPreviewDialog.dismiss();if(fileProgress!=null)fileProgress.dismiss();if(pendingEpubImport!=null)pendingEpubImport.close(isChangingConfigurations());if(store!=null&&!busy)store.close();super.onDestroy();}
 }

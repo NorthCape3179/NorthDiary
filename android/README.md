@@ -1,6 +1,16 @@
-# NorthDiary 安卓端 0.1.4-alpha
+# NorthDiary 安卓端 0.1.5-alpha
 
 原生 Android 应用，与 Windows 客户端并列放在本仓库。使用 Java 17、Android 原生视图和 SQLite，无运行时第三方依赖，不使用网页应用框架。
+
+## 0.1.5 GitHub 文集传输与灰色主题
+
+- 设置页明确提供“私有数据仓库”“导出到 GitHub”“从 GitHub 导入”。使用与桌面相同的 `northdiary-data.json` 标识和 `packs/时间戳-编号.epub` 协议，只连接独立 Private 数据仓库，不上传或替换 SQLite。
+- 连接已有桌面数据仓库，或显式确认后初始化空的私有仓库。拒绝 NorthDiary 源码仓库、公有仓库、非空的未标识仓库。建仓可从按钮打开 GitHub 官方新建页面，选择 Private。
+- 导出复用文章/分类/标签批选及章节排序；每包最多 20 MiB，流式 Base64 上传以控制内存。每次创建新的包文件，不覆盖旧包；上传后核对 Git blob SHA。若连接中断或响应未核对，先刷新远端列表确认结果再重试。
+- 导入先取得固定 commit 的包列表，按该 commit 下载，验证大小和 Git blob SHA，再调用完整 EPUB 检查和预览合并。重复跳过，冲突保留副本；没有自动双向同步或整库覆盖。
+- 账号授权新增显式私有仓库选项；原先 read:user 登录需要重新授权，或使用仅对该数据仓库开放 Contents 读写权限的 fine-grained PAT。只导入可使用只读令牌；凭据继续使用 Keystore，且不进入备份。
+- 普通深色改为黑灰，绿灰主题也使用相同的中性灰背景/卡片，只在按钮、选择状态和边框使用低饱和绿。浅色改为灰白；保留旧主题设置键，更新后直接应用新的配色。
+- 协议测试使用可替换网络层，验证私有/源码仓库限制、初始化、上传编码与响应核对、固定版本下载、损坏拒绝、预览合并、权限错误及大小限制。真实账号、真实私有仓库与手机网络仍需用户在应用中授权后验收，不将模拟网络测试称作真实仓库传输成功。
 
 ## 0.1.4 EPUB 文集导入与跨端交换
 
@@ -73,7 +83,7 @@ gradle :app:testDebugUnitTest :app:lintDebug :app:assembleDebug
 gradle :app:connectedDebugAndroidTest
 ```
 
-源码工程尚未包含 Gradle wrapper；请使用 Gradle 8.9。仓库 Actions 的 **Android alpha** 流程自动配置工具链，生成 `NorthDiary-android-0.1.4-alpha` artifact，里面的 `app-debug.apk` 可安装。调试签名缓存失效时，后续 APK 可能无法直接覆盖安装；请先备份，正式发布前需配置持久发行签名。
+源码工程尚未包含 Gradle wrapper；请使用 Gradle 8.9。仓库 Actions 的 **Android alpha** 流程自动配置工具链，生成 `NorthDiary-android-0.1.5-alpha` artifact，里面的 `app-debug.apk` 可安装。调试签名缓存失效时，后续 APK 可能无法直接覆盖安装；请先备份，正式发布前需配置持久发行签名。
 
 ## 验证范围
 
@@ -84,7 +94,7 @@ gradle :app:connectedDebugAndroidTest
 
 ## 初版限制
 
-- 暂无 GitHub 文章包交换、普通 EPUB 电子书导入、四季背景、自定义人物头像、分类目录重命名/删除、关系标签管理、永久删除。
+- 暂无自动双向同步、普通 EPUB 电子书导入、四季背景、自定义人物头像、分类目录重命名/删除、关系标签管理、永久删除。
 - 完整备份解压后最多 200 MiB、最多 10000 项；单张图片最多 32 MiB。
 - 备份恢复前目录保留于应用私有数据目录，可在设置中切回上一次恢复前档案，暂未提供旧目录清理 UI；恢复过程中若旋转导致页面重建，本次后台任务的结果不会自动应用，需要重新操作。活动档案仍受保护。
 - SQLite 小规模编辑事务在界面线程执行，图片和备份处理在后台；大量记录性能尚未验收。

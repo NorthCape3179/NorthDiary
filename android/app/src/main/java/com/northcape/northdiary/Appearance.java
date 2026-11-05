@@ -18,9 +18,9 @@ final class Appearance {
     }
     static String label(Context context) {
         switch(choice(context)) {
-            case "forest":return "深色 · 森林绿";
-            case "dark":return "深色 · 暮色酒红";
-            case "light":return "浅色 · 米色与红酒";
+            case "forest":return "深色 · 绿灰";
+            case "dark":return "深色 · 黑灰";
+            case "light":return "浅色 · 灰白";
             default:return "跟随系统";
         }
     }
