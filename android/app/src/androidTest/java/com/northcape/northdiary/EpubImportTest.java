@@ -1,6 +1,10 @@
 package com.northcape.northdiary;
 
 import android.content.Context;
+import android.content.ContentValues;
+import android.net.Uri;
+import android.os.Build;
+import android.provider.MediaStore;
 import android.database.sqlite.SQLiteException;
 import android.test.AndroidTestCase;
 import android.util.Base64;
@@ -77,7 +81,12 @@ public class EpubImportTest extends AndroidTestCase {
         File book=EpubService.export(getContext(),store,ids,"安卓往返测试文集","NorthDiary QA"),otherRoot=new File(root,"other");
         try(DiaryStore other=new DiaryStore(getContext(),otherRoot);InputStream in=new FileInputStream(book)){
             EpubImportService.Preview mobile=EpubImportService.prepare(getContext(),other,in);try{assertEquals(2,mobile.fresh);assertEquals(2,EpubImportService.apply(other,mobile).imported);assertEquals(2,other.exportable().size());}finally{mobile.close(false);}
-            File qa=new File(getContext().getExternalFilesDir(null),"epub-qa");assertTrue(qa.isDirectory()||qa.mkdirs());try(InputStream source=new FileInputStream(book);OutputStream out=new FileOutputStream(new File(qa,"mobile-roundtrip.epub"))){DiaryStore.copy(source,out,32*1024*1024);}
+            if(Build.VERSION.SDK_INT>=29){
+                ContentValues values=new ContentValues();values.put(MediaStore.MediaColumns.DISPLAY_NAME,"mobile-roundtrip.epub");values.put(MediaStore.MediaColumns.MIME_TYPE,"application/epub+zip");values.put(MediaStore.MediaColumns.RELATIVE_PATH,"Download/NorthDiaryQA");values.put(MediaStore.MediaColumns.IS_PENDING,1);
+                Uri uri=getContext().getContentResolver().insert(MediaStore.Downloads.EXTERNAL_CONTENT_URI,values);assertNotNull(uri);
+                try(InputStream source=new FileInputStream(book);OutputStream out=getContext().getContentResolver().openOutputStream(uri)){assertNotNull(out);DiaryStore.copy(source,out,32*1024*1024);}
+                values.clear();values.put(MediaStore.MediaColumns.IS_PENDING,0);getContext().getContentResolver().update(uri,values,null,null);
+            }
         }finally{book.delete();}
     }
 }

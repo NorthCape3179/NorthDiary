@@ -94,7 +94,7 @@ jobs:
             mkdir -p screenshots
             adb exec-out screencap -p > screenshots/home.png
             adb pull /sdcard/Pictures/NorthDiaryQA screenshots/
-            adb pull /sdcard/Android/data/com.northcape.northdiary/files/epub-qa screenshots/epub-qa
+            adb pull /sdcard/Download/NorthDiaryQA screenshots/epub-qa
       - uses: actions/upload-artifact@v4
         if: always()
         with:
