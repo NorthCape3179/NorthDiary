@@ -37,7 +37,7 @@ final class EpubExportDialog extends Dialog {
         LinearLayout content=Ui.column(host);Ui.pad(content,20);content.setBackgroundColor(Ui.color(host,R.color.card));content.setFocusableInTouchMode(true);
         LinearLayout form=Ui.column(host);controls=new ScrollView(host);controls.setFillViewport(false);controls.addView(form);content.addView(controls,new LinearLayout.LayoutParams(-1,Ui.dp(host,280)));
         form.addView(Ui.heading(host,"导出文集"));Ui.gap(form,8);
-        form.addView(Ui.text(host,"包含两个空间的已确认文章。生成阅读用电子书；完整恢复请使用 .ndiary 备份。",12,R.color.muted));Ui.gap(form,12);
+        form.addView(Ui.text(host,"包含两个空间的已确认文章，可阅读或导入 NorthDiary。完整恢复请使用 .ndiary 备份。",12,R.color.muted));Ui.gap(form,12);
         title=Ui.input(host,"书名",true);title.setTag("epub-title");title.setText(restored==null?"NorthDiary 文集":restored.getString("title","NorthDiary 文集"));form.addView(title);Ui.gap(form,8);
         author=Ui.input(host,"作者（选填）",true);author.setText(restored==null?"":restored.getString("author",""));form.addView(author);Ui.gap(form,8);
         LinearLayout groups=Ui.row(host);

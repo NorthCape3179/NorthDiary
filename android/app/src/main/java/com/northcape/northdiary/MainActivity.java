@@ -24,11 +24,15 @@ public final class MainActivity extends Activity {
     String query="",tag="",category="",lastRandomId="";
     EpubExportDialog epubDialog;
     RandomMemoryDialog randomDialog;
+    EpubImportService.Preview pendingEpubImport;
+    AlertDialog importPreviewDialog;
+    private String importSourcePath;
     int space=0;
     int timelineIndex=0,timelineOffset=0;
     boolean byDate=true;
     private int tab=0,scroll=0;
     private boolean editing,dirty,wide,busy;
+    private AlertDialog fileProgress;
     private final Handler handler=new Handler(Looper.getMainLooper());
     private final Runnable journal=()->writeDraft(false);
     private final Runnable autosave=()->saveEditor(false);
@@ -46,6 +50,7 @@ public final class MainActivity extends Activity {
                 query=state.getString("query","");tag=state.getString("tag","");byDate=state.getBoolean("byDate",true);scroll=state.getInt("scroll");
                 category=state.getString("category","");lastRandomId=state.getString("lastRandomId","");
                 pendingImageId=state.getString("image");exportPath=state.getString("export");
+                importSourcePath=state.getString("epubImportSource");
             }
             Article recovered=drafts.read();
             if(recovered!=null) {
@@ -54,6 +59,7 @@ public final class MainActivity extends Activity {
             }
             build(recovered);
             if(state!=null&&state.getBundle("epubSelection")!=null)showEpubExport(state.getBundle("epubSelection"));
+            if(importSourcePath!=null){String path=importSourcePath;handler.post(()->work("检查 EPUB",()->EpubImportService.prepare(this,store,new File(path)),this::showImportPreview));}
             if(recovered!=null)Toast.makeText(this,"已恢复尚未保存的编辑内容",Toast.LENGTH_LONG).show();
         } catch(Exception e) {
             new AlertDialog.Builder(this).setTitle("无法打开档案").setMessage(e.getMessage()).setPositiveButton("关闭",(d,w)->finish()).setCancelable(false).show();
@@ -118,6 +124,22 @@ public final class MainActivity extends Activity {
         randomDialog=new RandomMemoryDialog(this,store);randomDialog.show();
     }
     void exportEpub(){if(!busy&&saveEditor(true))showEpubExport(null);}
+    void importEpub(){if(!busy&&saveEditor(true))chooseDocument(105,"application/epub+zip");}
+    void showImportPreview(EpubImportService.Preview preview){
+        pendingEpubImport=preview;importSourcePath=preview.source.getPath();
+        LinearLayout content=Ui.column(this);Ui.pad(content,20);content.addView(Ui.text(this,preview.summary(),14,R.color.accent));Ui.gap(content,12);
+        content.addView(Ui.text(this,"重复副本会跳过；内容冲突会另存副本，保留本地文章和人物。正文转换为手机基础排版，图片显示为文件名链接。",13,R.color.muted));Ui.gap(content,12);
+        for(int i=0;i<Math.min(preview.entries.size(),8);i++)content.addView(Ui.text(this,"· "+preview.entries.get(i).record.optString("title"),14,R.color.ink));
+        if(preview.entries.size()>8)content.addView(Ui.text(this,"以及其余 "+(preview.entries.size()-8)+" 篇",12,R.color.muted));
+        ScrollView scroll=new ScrollView(this);scroll.addView(content);
+        importPreviewDialog=new AlertDialog.Builder(this).setTitle("导入预览").setView(scroll).setPositiveButton("确认导入",(d,w)->applyEpubImport()).setNegativeButton("取消",(d,w)->cancelEpubImport()).create();
+        importPreviewDialog.setOnCancelListener(d->cancelEpubImport());importPreviewDialog.show();
+    }
+    private void cancelEpubImport(){if(pendingEpubImport!=null)pendingEpubImport.close(false);pendingEpubImport=null;importSourcePath=null;}
+    void applyEpubImport(){
+        EpubImportService.Preview preview=pendingEpubImport;if(preview==null)return;pendingEpubImport=null;importSourcePath=null;
+        work("导入文集",()->{try{return EpubImportService.apply(store,preview);}finally{preview.close(false);}},result->{activeId=null;editing=false;dirty=false;tab=0;space=0;query="";tag="";category="";build(null);Toast.makeText(this,"已导入 "+result.imported+" 篇，跳过 "+result.skipped+" 篇，冲突副本 "+result.conflicts+" 篇",Toast.LENGTH_LONG).show();});
+    }
     private void showEpubExport(Bundle state){epubDialog=new EpubExportDialog(this,store,state);epubDialog.show();}
     private void navigate(int target){if(busy||!saveEditor(true))return;tab=target;activeId=null;editing=false;scroll=0;build(null);}
     void newArticle() {
@@ -192,10 +214,10 @@ public final class MainActivity extends Activity {
     private interface Work<T>{T run()throws Exception;}
     private interface Done<T>{void accept(T result)throws Exception;}
     private <T> void work(String title,Work<T> action,Done<T> done) {
-        if(busy)return;busy=true;AlertDialog progress=new AlertDialog.Builder(this).setTitle(title).setMessage("正在处理，请稍候。").setCancelable(false).create();progress.show();
+        if(busy)return;busy=true;AlertDialog progress=new AlertDialog.Builder(this).setTitle(title).setMessage("正在处理，请稍候。").setCancelable(false).create();fileProgress=progress;progress.show();
         new Thread(()->{
-            try{T result=action.run();runOnUiThread(()->{if(isDestroyed()){busy=false;store.close();return;}busy=false;progress.dismiss();try{done.accept(result);}catch(Exception e){Ui.error(this,e);}});}
-            catch(Exception e){runOnUiThread(()->{busy=false;if(isDestroyed()){store.close();return;}progress.dismiss();Ui.error(this,e);});}
+            try{T result=action.run();runOnUiThread(()->{progress.dismiss();if(isDestroyed()){busy=false;if(result instanceof EpubImportService.Preview)((EpubImportService.Preview)result).close(false);store.close();return;}busy=false;try{done.accept(result);}catch(Exception e){Ui.error(this,e);}});}
+            catch(Exception e){runOnUiThread(()->{busy=false;progress.dismiss();if(isDestroyed()){store.close();return;}Ui.error(this,e);});}
         },"northdiary-files").start();
     }
     void exportBackup(){work("准备完整备份",()->ArchiveService.export(this,store),file->{exportPath=file.getPath();Intent i=new Intent(Intent.ACTION_CREATE_DOCUMENT).setType("application/octet-stream").addCategory(Intent.CATEGORY_OPENABLE).putExtra(Intent.EXTRA_TITLE,"NorthDiary-"+java.time.LocalDate.now()+".ndiary");startActivityForResult(i,103);});}
@@ -218,6 +240,9 @@ public final class MainActivity extends Activity {
         } else if(code==102)work("检查并恢复备份",()->{
             InputStream in=getContentResolver().openInputStream(uri);if(in==null)throw new IOException("无法读取备份");return ArchiveService.stage(this,in);
         },this::activateRoot);
+        else if(code==105)work("检查 EPUB",()->{
+            InputStream in=getContentResolver().openInputStream(uri);if(in==null)throw new IOException("无法读取 EPUB");return EpubImportService.prepare(this,store,in);
+        },this::showImportPreview);
         else if((code==103||code==104)&&exportPath!=null) {
             File source=new File(exportPath);exportPath=null;
             work(code==104?"保存 EPUB 文集":"写入备份",()->{
@@ -254,8 +279,9 @@ public final class MainActivity extends Activity {
         state.putString("query",query);state.putString("tag",tag);state.putBoolean("byDate",byDate);state.putInt("scroll",scroll);
         state.putString("category",category);state.putString("lastRandomId",lastRandomId);
         if(epubDialog!=null&&epubDialog.isShowing())state.putBundle("epubSelection",epubDialog.captureState());
+        if(pendingEpubImport!=null)state.putString("epubImportSource",importSourcePath);
         state.putString("image",pendingImageId);state.putString("export",exportPath);super.onSaveInstanceState(state);
     }
     @Override public void onBackPressed(){if(busy)return;if(activeId!=null&&(tab==0||tab==3))backFromArticle();else if(tab!=0)navigate(0);else if(saveEditor(true))super.onBackPressed();}
-    @Override protected void onDestroy(){handler.removeCallbacksAndMessages(null);if(githubDialog!=null)githubDialog.dismiss();if(epubDialog!=null)epubDialog.dismiss();if(randomDialog!=null)randomDialog.dismiss();if(store!=null&&!busy)store.close();super.onDestroy();}
+    @Override protected void onDestroy(){handler.removeCallbacksAndMessages(null);if(githubDialog!=null)githubDialog.dismiss();if(epubDialog!=null)epubDialog.dismiss();if(randomDialog!=null)randomDialog.dismiss();if(importPreviewDialog!=null)importPreviewDialog.dismiss();if(fileProgress!=null)fileProgress.dismiss();if(pendingEpubImport!=null)pendingEpubImport.close(isChangingConfigurations());if(store!=null&&!busy)store.close();super.onDestroy();}
 }

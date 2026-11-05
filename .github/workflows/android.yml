@@ -43,7 +43,7 @@ jobs:
       - run: gradle --no-daemon :app:testDebugUnitTest :app:lintDebug :app:assembleDebug :app:assembleDebugAndroidTest
       - uses: actions/upload-artifact@v4
         with:
-          name: NorthDiary-android-0.1.3-alpha
+          name: NorthDiary-android-0.1.4-alpha
           path: android/app/build/outputs/apk/debug/*.apk
       - uses: actions/upload-artifact@v4
         if: always()
@@ -94,6 +94,7 @@ jobs:
             mkdir -p screenshots
             adb exec-out screencap -p > screenshots/home.png
             adb pull /sdcard/Pictures/NorthDiaryQA screenshots/
+            adb pull /sdcard/Android/data/com.northcape.northdiary/files/epub-qa screenshots/epub-qa
       - uses: actions/upload-artifact@v4
         if: always()
         with:

@@ -4,6 +4,7 @@ import android.content.Context;
 import android.graphics.Typeface;
 import android.text.*;
 import android.text.style.*;
+import org.json.*;
 import java.io.*;
 import java.nio.charset.StandardCharsets;
 import java.time.Instant;
@@ -21,7 +22,7 @@ final class EpubService {
     }
     static File export(Context context,DiaryStore store,List<String> ids,String title,String author)throws Exception {
         if(title.trim().isEmpty()||ids.isEmpty())throw new IOException("请填写书名，并至少选择一篇文章");
-        if(ids.size()>2000||new HashSet<>(ids).size()!=ids.size())throw new IOException("章节过多或包含重复文章");
+        if(ids.size()>1000||new HashSet<>(ids).size()!=ids.size())throw new IOException("每次最多导出 1000 篇，且不能重复选择文章");
         File output=File.createTempFile("NorthDiary-reading-",".epub",context.getCacheDir());
         try {
             synchronized(store){
@@ -48,7 +49,7 @@ final class EpubService {
                     text(zip,"META-INF/container.xml","<?xml version=\"1.0\" encoding=\"UTF-8\"?><container version=\"1.0\" xmlns=\"urn:oasis:names:tc:opendocument:xmlns:container\"><rootfiles><rootfile full-path=\"EPUB/content.opf\" media-type=\"application/oebps-package+xml\"/></rootfiles></container>");
                     text(zip,"EPUB/style.css","body{line-height:1.7;margin:1em;}p{margin:0 0 .8em;white-space:pre-wrap;}h1{font-size:1.6em;}a{overflow-wrap:anywhere;}.date{color:#777;font-size:.9em;}");
                     StringBuilder manifest=new StringBuilder("<item id=\"nav\" href=\"nav.xhtml\" media-type=\"application/xhtml+xml\" properties=\"nav\"/><item id=\"css\" href=\"style.css\" media-type=\"text/css\"/>"),spine=new StringBuilder(),toc=new StringBuilder();
-                    int index=0;
+                    int index=0;JSONArray records=new JSONArray();int references=0;
                     for(Article a:articles){
                         index++;String path="text/chapter-"+index+".xhtml";
                         manifest.append("<item id=\"c").append(index).append("\" href=\"").append(path).append("\" media-type=\"application/xhtml+xml\"/>");spine.append("<itemref idref=\"c").append(index).append("\"/>");
@@ -56,6 +57,13 @@ final class EpubService {
                         StringBuilder content=new StringBuilder("<h1>").append(xml(a.title)).append("</h1>");
                         if(!a.outside)content.append("<p class=\"date\">").append(xml(PartialDate.label(a.date))).append("</p>");
                         Spanned parsed=ArticleText.parse(context,a.html.isEmpty()?"<p>"+xml(a.text)+"</p>":a.html,attachments.get(a.id));
+                        JSONArray nativeAssets=new JSONArray();Set<String> linked=new HashSet<>();for(URLSpan link:parsed.getSpans(0,parsed.length(),URLSpan.class))if(link.getURL().startsWith("ndiary-image:"))linked.add(link.getURL().substring("ndiary-image:".length()));
+                        String nativeHtml=a.html.isEmpty()?"<p>"+xml(a.text)+"</p>":a.html;
+                        for(Attachment file:attachments.get(a.id)){
+                            Image image=images.get(file.id);JSONObject asset=new JSONObject();asset.put("id",file.id).put("name",file.name).put("relative_path",file.path).put("archive_path","EPUB/"+image.href).put("media_type",image.mime).put("sha256",ExchangeRecords.sha256(image.file));
+                            asset.put("caption",store.strings("SELECT caption FROM attachments WHERE id=?",file.id).get(0));nativeAssets.put(asset);references++;if(!linked.contains(file.id))nativeHtml+="<p><a href=\"ndiary-image:"+file.id+"\">"+xml(file.name)+"</a></p>";
+                        }
+                        JSONObject record=ExchangeRecords.article(store,a.id,nativeAssets);record.put("body_html",nativeHtml);ExchangeRecords.validate(record,4);records.put(record);
                         content.append(body(parsed,images));
                         if(!attachments.get(a.id).isEmpty()){
                             content.append("<section><h2>附件链接</h2><ul>");
@@ -64,6 +72,8 @@ final class EpubService {
                         text(zip,"EPUB/"+path,page(a.title,"../style.css",content.toString()));
                     }
                     text(zip,"EPUB/nav.xhtml",page(title,"style.css","<nav epub:type=\"toc\" id=\"toc\"><h1>"+xml(title)+"</h1><ol>"+toc+"</ol></nav>"));
+                    String exchange=new JSONObject().put("format",ExchangeRecords.FORMAT).put("version",4).put("articles",records).toString();if(exchange.getBytes(StandardCharsets.UTF_8).length>8*1024*1024||references>5000)throw new IOException("交换清单过大，请分批导出");
+                    text(zip,ExchangeRecords.PATH,exchange);manifest.append("<item id=\"northdiary-data\" href=\"northdiary/manifest.json\" media-type=\"application/json\"/>");
                     index=0;for(Image image:images.values()){
                         manifest.append("<item id=\"image").append(++index).append("\" href=\"").append(image.href).append("\" media-type=\"").append(image.mime).append("\"/>");
                         zip.putNextEntry(new ZipEntry("EPUB/"+image.href));try(InputStream in=new FileInputStream(image.file)){DiaryStore.copy(in,zip,32L*1024*1024);}zip.closeEntry();
@@ -75,7 +85,7 @@ final class EpubService {
             return output;
         }catch(Exception e){output.delete();throw e;}
     }
-    private static String imageType(File file)throws IOException {
+    static String imageType(File file)throws IOException {
         byte[] head=new byte[12];int length;try(InputStream in=new FileInputStream(file)){length=in.read(head);}
         if(length>=8&&head[0]==(byte)137&&head[1]==80&&head[2]==78&&head[3]==71&&head[4]==13&&head[5]==10&&head[6]==26&&head[7]==10)return "png";
         if(length>=3&&head[0]==(byte)255&&head[1]==(byte)216&&head[2]==(byte)255)return "jpg";
