@@ -19,7 +19,7 @@ final class EpubExportDialog extends Dialog {
     private TextView count,error;
     AlertDialog groupDialog;
     EpubExportDialog(MainActivity host,DiaryStore store,Bundle restored){
-        super(host);this.host=host;this.restored=restored;rows=store.exportable();
+        super(host,Appearance.choice(host).equals("forest")?R.style.ForestTheme:R.style.AppTheme);this.host=host;this.restored=restored;rows=store.exportable();
         if(restored!=null){
             ArrayList<String> order=restored.getStringArrayList("order");
             if(order!=null){Map<String,Integer> positions=new HashMap<>();for(int i=0;i<order.size();i++)positions.put(order.get(i),i);rows.sort(Comparator.comparingInt(a->positions.getOrDefault(a.id,Integer.MAX_VALUE)));}
@@ -32,8 +32,8 @@ final class EpubExportDialog extends Dialog {
         }
     }
     @Override protected void onCreate(Bundle state){
-        super.onCreate(state);setTitle("导出 EPUB 文集");
-        LinearLayout content=Ui.column(host);Ui.pad(content,20);content.setBackgroundColor(Ui.color(host,R.color.card));
+        super.onCreate(state);getWindow().setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE|WindowManager.LayoutParams.SOFT_INPUT_STATE_ALWAYS_HIDDEN);
+        LinearLayout content=Ui.column(host);Ui.pad(content,20);content.setBackgroundColor(Ui.color(host,R.color.card));content.setFocusableInTouchMode(true);
         content.addView(Ui.heading(host,"导出文集"));Ui.gap(content,8);
         content.addView(Ui.text(host,"包含两个空间的已确认文章。生成阅读用电子书；完整恢复请使用 .ndiary 备份。",12,R.color.muted));Ui.gap(content,12);
         title=Ui.input(host,"书名",true);title.setTag("epub-title");title.setText(restored==null?"NorthDiary 文集":restored.getString("title","NorthDiary 文集"));content.addView(title);Ui.gap(content,8);
@@ -49,9 +49,9 @@ final class EpubExportDialog extends Dialog {
         list.setOnItemLongClickListener((p,v,i,id)->{PopupMenu menu=new PopupMenu(host,v);menu.getMenu().add("上移").setEnabled(i>0);menu.getMenu().add("下移").setEnabled(i+1<rows.size());menu.setOnMenuItemClickListener(item->{move(i,item.getTitle().equals("上移")?-1:1);return true;});menu.show();return true;});
         error=Ui.text(host,"",12,R.color.accent);content.addView(error);
         LinearLayout footer=Ui.row(host);Ui.weighted(footer,Ui.quiet(host,"取消",this::dismiss),1);Ui.weighted(footer,Ui.primary(host,"生成 EPUB",this::generate),1);content.addView(footer);
-        setContentView(content);render();
+        setContentView(content,new ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT,ViewGroup.LayoutParams.MATCH_PARENT));content.requestFocus();render();
     }
-    @Override protected void onStart(){super.onStart();getWindow().setLayout(Math.min(Ui.dp(host,720),host.getResources().getDisplayMetrics().widthPixels),ViewGroup.LayoutParams.MATCH_PARENT);getWindow().setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE);}
+    @Override protected void onStart(){super.onStart();getWindow().setLayout(Math.min(Ui.dp(host,720),host.getResources().getDisplayMetrics().widthPixels),ViewGroup.LayoutParams.MATCH_PARENT);getWindow().setGravity(Gravity.CENTER);}
     private void chooseGroup(String kind,Map<String,Set<String>> groups){
         List<String> names=new ArrayList<>(groups.keySet());String[] labels=new String[names.size()];for(int i=0;i<names.size();i++)labels[i]=names.get(i)+"（"+groups.get(names.get(i)).size()+" 篇）";
         groupDialog=new AlertDialog.Builder(host).setTitle("按"+kind+"选择").setItems(labels,(d,i)->select(groups.get(names.get(i)))).setNegativeButton("取消",null).show();

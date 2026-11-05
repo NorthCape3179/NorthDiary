@@ -22,6 +22,18 @@ public class ArchiveFeatureUiTest extends ActivityInstrumentationTestCase2<MainA
     }
     private String add(DiaryStore store,String title,String category,boolean outside){Article a=new Article();a.id=UUID.randomUUID().toString();a.title=title;a.date="2026";a.outside=outside;a.categories=Collections.singletonList(category);a.tags.add("回忆");a.html="<p>湖边的风吹过校园，我们把平常的一天留在这里。</p>";a.text="湖边的风吹过校园，我们把平常的一天留在这里。";store.save(a);return a.id;}
     private View text(View root,String label){if(root instanceof TextView&&label.contentEquals(((TextView)root).getText()))return root;if(root instanceof ViewGroup)for(int i=0;i<((ViewGroup)root).getChildCount();i++){View found=text(((ViewGroup)root).getChildAt(i),label);if(found!=null)return found;}return null;}
+    private EditText categoryInput(View view){if(view instanceof EditText&&"分类，用中文或英文逗号分隔".contentEquals(((EditText)view).getHint()))return (EditText)view;if(view instanceof ViewGroup)for(int i=0;i<((ViewGroup)view).getChildCount();i++){EditText found=categoryInput(((ViewGroup)view).getChildAt(i));if(found!=null)return found;}return null;}
+    public void testCategoryEditingAndFilterSurviveRecreation()throws Throwable{
+        current=getActivity();getInstrumentation().waitForIdleSync();
+        runTestOnUiThread(()->{
+            current.openArticle(first,true);View decor=current.getWindow().getDecorView();text(decor,"日期、分类、标签与人物  ⌄").performClick();EditText categories=categoryInput(decor);assertNotNull(categories);assertEquals("校园",categories.getText().toString());categories.setText("新分类，校园");current.backFromArticle();
+            try(DiaryStore verify=new DiaryStore(current,root)){assertEquals(2,verify.get(first).categories.size());assertTrue(verify.get(first).categories.contains("新分类"));}
+            current.category="新分类";
+        });
+        Instrumentation.ActivityMonitor monitor=new Instrumentation.ActivityMonitor(MainActivity.class.getName(),null,false);getInstrumentation().addMonitor(monitor);runTestOnUiThread(current::recreate);
+        current=(MainActivity)monitor.waitForActivityWithTimeout(10000);getInstrumentation().removeMonitor(monitor);assertNotNull(current);getInstrumentation().waitForIdleSync();
+        runTestOnUiThread(()->{assertEquals("新分类",current.category);assertNotNull(text(current.getWindow().getDecorView(),"新分类 ⌄"));});UiTestCapture.save(getInstrumentation(),"11-category-filter");
+    }
     public void testRandomPreviewAndExportGroupSelectionRecreation()throws Throwable{
         current=getActivity();getInstrumentation().waitForIdleSync();
         runTestOnUiThread(()->{View button=text(current.getWindow().getDecorView(),"随机回忆");assertNotNull(button);button.performClick();});getInstrumentation().waitForIdleSync();
@@ -36,7 +48,12 @@ public class ArchiveFeatureUiTest extends ActivityInstrumentationTestCase2<MainA
         });
         Instrumentation.ActivityMonitor monitor=new Instrumentation.ActivityMonitor(MainActivity.class.getName(),null,false);getInstrumentation().addMonitor(monitor);runTestOnUiThread(current::recreate);
         current=(MainActivity)monitor.waitForActivityWithTimeout(10000);getInstrumentation().removeMonitor(monitor);assertNotNull(current);getInstrumentation().waitForIdleSync();
-        runTestOnUiThread(()->{assertTrue(current.epubDialog.isShowing());assertEquals(Collections.singletonList(first),current.epubDialog.selectedIds());assertEquals("我的回忆文集",((EditText)current.epubDialog.getWindow().getDecorView().findViewWithTag("epub-title")).getText().toString());});
+        runTestOnUiThread(()->{
+            assertTrue(current.epubDialog.isShowing());assertEquals(Collections.singletonList(first),current.epubDialog.selectedIds());View decor=current.epubDialog.getWindow().getDecorView();assertEquals("我的回忆文集",((EditText)decor.findViewWithTag("epub-title")).getText().toString());
+            View generate=text(decor,"生成 EPUB"),chapters=decor.findViewWithTag("epub-chapters");android.graphics.Rect rect=new android.graphics.Rect();
+            assertTrue("Export button must remain on screen",generate.getGlobalVisibleRect(rect)&&rect.height()>=generate.getHeight()-1);
+            assertTrue("Chapter selection needs usable height",chapters.getHeight()>=Ui.dp(current,96));assertTrue(chapters.getGlobalVisibleRect(new android.graphics.Rect()));
+        });
         UiTestCapture.save(getInstrumentation(),"10-export-selection");runTestOnUiThread(()->current.epubDialog.dismiss());
     }
     @Override protected void tearDown()throws Exception{

@@ -17,7 +17,7 @@ final class RandomMemoryDialog extends AlertDialog {
     private Article current;
     RandomMemoryDialog(MainActivity host,DiaryStore store){
         super(host);this.host=host;this.store=store;articles=store.exportable();setTitle("随机回忆");
-        LinearLayout content=Ui.column(host);Ui.pad(content,20);
+        LinearLayout content=Ui.column(host);Ui.pad(content,20);content.setBackgroundColor(Ui.color(host,R.color.card));
         content.addView(Ui.text(host,"从有日期与时间线之外的已确认文章中抽取",12,R.color.muted));Ui.gap(content,12);
         title=Ui.heading(host,"");content.addView(title);date=Ui.text(host,"",12,R.color.accent);content.addView(date);Ui.gap(content,16);
         body=Ui.text(host,"",17,R.color.ink);body.setLineSpacing(Ui.dp(host,5),1.1f);body.setMovementMethod(LinkMovementMethod.getInstance());content.addView(body);

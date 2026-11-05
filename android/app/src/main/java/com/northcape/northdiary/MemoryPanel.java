@@ -26,8 +26,8 @@ final class MemoryPanel extends LinearLayout {
         spaces=Ui.row(host);addView(Ui.horizontal(host,spaces));renderSpaces();Ui.gap(this,10);
         LinearLayout filters=Ui.row(host);Button tag=Ui.quiet(host,host.tag.isEmpty()?"全部标签 ⌄":host.tag+" ⌄",host::pickTag);tag.setTextSize(12);Ui.weighted(filters,tag,1);
         sort=Ui.quiet(host,"",()->{host.byDate=!host.byDate;refresh();});sort.setTextSize(12);Ui.weighted(filters,sort,1);addView(filters);
-        LinearLayout tools=Ui.row(host);Ui.weighted(tools,Ui.quiet(host,host.category.isEmpty()?"全部分类 ⌄":host.category+" ⌄",host::pickCategory),1);
-        Ui.weighted(tools,Ui.quiet(host,"随机回忆",host::randomMemory),1);Ui.weighted(tools,Ui.quiet(host,"导出文集",host::exportEpub),1);addView(Ui.horizontal(host,tools));
+        LinearLayout tools=Ui.row(host);Button category=Ui.quiet(host,host.category.isEmpty()?"全部分类 ⌄":host.category+" ⌄",host::pickCategory);category.setSingleLine(true);category.setTextSize(12);Ui.weighted(tools,category,1.2f);
+        Button random=Ui.quiet(host,"随机回忆",host::randomMemory),export=Ui.quiet(host,"导出文集",host::exportEpub);random.setTextSize(12);export.setTextSize(12);random.setSingleLine(true);export.setSingleLine(true);Ui.weighted(tools,random,1);Ui.weighted(tools,export,1);addView(tools);
         count=Ui.text(host,"",11,R.color.muted);count.setPadding(Ui.dp(host,4),Ui.dp(host,8),0,Ui.dp(host,10));if(!Ui.compact(host))addView(count);
         FrameLayout body=new FrameLayout(host);addView(body,new LayoutParams(-1,0,1));
         list=new ListView(host);list.setDivider(new ColorDrawable(android.graphics.Color.TRANSPARENT));list.setDividerHeight(Ui.dp(host,10));list.setVerticalScrollBarEnabled(false);list.setClipToPadding(false);list.setPadding(0,0,0,Ui.dp(host,10));body.addView(list,new FrameLayout.LayoutParams(-1,-1));
