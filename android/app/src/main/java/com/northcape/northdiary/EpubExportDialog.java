@@ -51,6 +51,10 @@ final class EpubExportDialog extends Dialog {
         list.setOnItemLongClickListener((p,v,i,id)->{PopupMenu menu=new PopupMenu(host,v);menu.getMenu().add("上移").setEnabled(i>0);menu.getMenu().add("下移").setEnabled(i+1<rows.size());menu.setOnMenuItemClickListener(item->{move(i,item.getTitle().equals("上移")?-1:1);return true;});menu.show();return true;});
         error=Ui.text(host,"",12,R.color.accent);content.addView(error);
         LinearLayout footer=Ui.row(host);Ui.weighted(footer,Ui.quiet(host,"取消",this::dismiss),1);Ui.weighted(footer,Ui.primary(host,"生成 EPUB",this::generate),1);content.addView(footer);
+        content.addOnLayoutChangeListener((v,left,top,right,bottom,oldLeft,oldTop,oldRight,oldBottom)->{
+            int height=Math.min(Ui.dp(host,360),Math.max(Ui.dp(host,80),bottom-top-Ui.dp(host,220)));
+            LinearLayout.LayoutParams params=(LinearLayout.LayoutParams)controls.getLayoutParams();if(params.height!=height){params.height=height;controls.setLayoutParams(params);}
+        });
         setContentView(content,new ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT,ViewGroup.LayoutParams.MATCH_PARENT));content.requestFocus();render();
     }
     @Override protected void onStart(){
