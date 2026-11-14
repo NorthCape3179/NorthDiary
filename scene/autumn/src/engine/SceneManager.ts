@@ -11,10 +11,14 @@ import { ReedSystem } from '../systems/ReedSystem';
 import { QualityManager } from '../systems/QualityManager';
 import { NearCanopySystem } from '../systems/NearCanopySystem';
 import { SurfaceLeafSystem } from '../systems/SurfaceLeafSystem';
+import { AtmosphereSystem } from '../systems/AtmosphereSystem';
+import { LakeWildlifeSystem } from '../systems/LakeWildlifeSystem';
 export class SceneManager {
   readonly app=new Application();readonly assets=new AssetManager();readonly quality=new QualityManager();
   config!:SceneConfig;layers!:LayerManager;wind!:WindField;simulation!:LeafSimulation;leaves!:LeafSystem;water!:WaterSystem;branches!:BranchSystem;reeds!:ReedSystem;
   nearCanopy?:NearCanopySystem;surfaceLeaves?:SurfaceLeafSystem;
+  private atmosphere?: AtmosphereSystem;
+  private wildlife?: LakeWildlifeSystem;
   timeScale=1;
   private hostActive=true;
   private accumulator=0;private observer?:ResizeObserver;private debugGraphic=new Graphics();private visibility=()=>{this.quality.hidden=document.hidden||!this.hostActive;this.sync();};
@@ -52,12 +56,16 @@ export class SceneManager {
       leaf.rotation = placement.angle;
       foregroundWater.addChild(leaf);
     }
-    for(const id of ['reflection','ripples','floating_leaves','surface_leaves_far','surface_leaves_near']){
+    for(const id of ['reflection','wildlife','ripples','floating_leaves','surface_leaves_far','surface_leaves_near']){
       if(!this.layers.layers.has(id))continue;
       const mask=new Graphics().poly(c.water.polygon.flat()).fill(0xffffff);this.app.stage.addChild(mask);this.layers.get(id).mask=mask;
     }
     this.wind=new WindField(c.wind);
-    this.water=new WaterSystem(c,this.wind,this.assets.get(c.layers.find(l=>l.id==='reflection')!.asset!),this.layers.get('reflection'),this.layers.get('ripples'));
+    this.atmosphere = new AtmosphereSystem(this.layers.get('far_mountains'), this.layers.get('near_mountains'));
+    this.water=new WaterSystem(c,this.wind,this.assets.get(c.layers.find(l=>l.id==='reflection')!.asset!),this.layers.get('reflection'),this.layers.get('ripples'),(c.assets.waterSurfaces??[]).map(file=>this.assets.get(file)));
+    if(c.assets.wildlife&&this.layers.layers.has('wildlife')){
+      this.wildlife=new LakeWildlifeSystem(this.layers.get('wildlife'),c.assets.wildlife.map(file=>this.assets.get(file)),this.water);
+    }
     this.branches=new BranchSystem(this.layers.get('branches'),this.assets,c,this.wind);
     if(c.assets.nearCanopy&&this.layers.layers.has('near_canopy'))this.nearCanopy=new NearCanopySystem(this.layers.get('near_canopy'),this.assets,c,this.wind);
     if(c.leaves.surfaceCount)this.surfaceLeaves=new SurfaceLeafSystem(this.layers,this.assets,c,this.wind);
@@ -76,9 +84,10 @@ export class SceneManager {
       if(!this.quality.running)return;
       this.accumulator+=Math.min(ticker.deltaMS/1000,.05)*this.timeScale;
       while(this.accumulator>=1/60){
-        this.simulation.step(1/60);this.surfaceLeaves?.update(1/60);this.water.update(1/60);this.accumulator-=1/60;
+        this.simulation.step(1/60);this.surfaceLeaves?.update(1/60);this.wildlife?.update(1/60);this.water.update(1/60);this.accumulator-=1/60;
       }
       this.branches.update(this.simulation.time);this.nearCanopy?.update(this.simulation.time);this.reeds.update(this.simulation.time);this.leaves.render();
+      this.atmosphere?.update(this.simulation.time);
     });
     this.sync();this.render();
   }
@@ -111,5 +120,5 @@ export class SceneManager {
     this.simulation.spawn({x:284,y:242,texture:2},244);this.onNotice(`叶片即将触水并产生波纹；漂浮 ${this.config.leaves.floatingLifetimeSec} 秒后逐渐淡出。`);
   }
   exportConfig(){const c=structuredClone(this.config);c.render.quality=this.quality.quality;return JSON.stringify(c,null,2);}
-  async destroy(){document.removeEventListener('visibilitychange',this.visibility);this.observer?.disconnect();this.app.canvas.removeEventListener('webglcontextlost',this.contextLost);this.app.canvas.removeEventListener('webglcontextrestored',this.contextRestored);this.water?.destroy();this.app.destroy(true,{children:true});await this.assets.destroy();}
+  async destroy(){document.removeEventListener('visibilitychange',this.visibility);this.observer?.disconnect();this.app.canvas.removeEventListener('webglcontextlost',this.contextLost);this.app.canvas.removeEventListener('webglcontextrestored',this.contextRestored);this.water?.destroy();this.app.destroy(true,{children:true});this.atmosphere?.destroy();await this.assets.destroy();}
 }

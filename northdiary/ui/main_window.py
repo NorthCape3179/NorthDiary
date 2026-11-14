@@ -31,6 +31,9 @@ from northdiary.ui.date_picker import DateInput, matches_day
 from northdiary.ui.header_tools import HeaderTools
 from northdiary.ui.about_dialog import AboutButton, AboutDialog
 from northdiary.ui.lyrics_board import LyricsBoard, lyrics_icon
+from northdiary.ui.window_chrome import install_window_chrome, style_main_window
+from northdiary.ui.editor_toolbar import EditorToolbar, DefaultTypographyDialog
+from northdiary.ui.font_picker import FontPreferences
 
 
 def label(text, name='muted'):
@@ -43,6 +46,7 @@ def label(text, name='muted'):
 class MainWindow(QMainWindow):
     def __init__(self, database):
         super().__init__()
+        install_window_chrome()
         self.database = database
         self.repository = ArticleRepository(database)
         self.attachments = AttachmentService(database)
@@ -68,9 +72,12 @@ class MainWindow(QMainWindow):
         self.timer.setSingleShot(True)
         self.timer.setInterval(900)
         self.timer.timeout.connect(lambda: self.save(False))
-        self.build_ui()
-        self.button_feedback = ButtonFeedback(self)
         self.ui_settings = QSettings(str(database.root / 'ui.ini'), QSettings.Format.IniFormat)
+        self.font_preferences = FontPreferences(self.ui_settings, self)
+        self.build_ui()
+        style_main_window(self)
+        self.button_feedback = ButtonFeedback(self)
+        self.default_body_font = self.font_preferences.new_entry_font()
         self.lyrics_board.bind_settings(self.ui_settings)
         self.header_tools.set_collapsed(self.ui_settings.value('header_collapsed', False, type=bool), animate=False)
         self.header_tools.collapsedChanged.connect(self.remember_header_state)
@@ -108,7 +115,9 @@ class MainWindow(QMainWindow):
         frame = QWidget()
         outer = QVBoxLayout(frame)
         outer.setContentsMargins(20, 16, 20, 8)
-        header = QHBoxLayout()
+        self.main_header = QWidget()
+        header = QHBoxLayout(self.main_header)
+        header.setContentsMargins(0, 0, 0, 0)
         header.addWidget(label('NorthDiary', 'brand'))
         self.space_button = self.button('时间线之外', self.toggle_space, True)
         header.addWidget(self.space_button)
@@ -121,10 +130,12 @@ class MainWindow(QMainWindow):
         scene_tools.setContentsMargins(0, 0, 0, 0)
         for title, command in (
             ('暂停 / 继续', 'pause'),
-            ('铺满 / 还原', 'fullscreen'),
+            ('全屏', 'fullscreen'),
             ('场景设置', 'debug-toggle'),
         ):
-            scene_tools.addWidget(self.button(title, lambda checked=False, name=command: self.autumn_scene.click_control(name)))
+            callback = (self.toggle_scene_fullscreen if command == 'fullscreen' else
+                        lambda checked=False, name=command: self.autumn_scene.click_control(name))
+            scene_tools.addWidget(self.button(title, callback))
         scene_lyrics = self.button('同步歌词', self.set_scene_lyrics)
         scene_lyrics.setCheckable(True)
         scene_tools.insertWidget(1, scene_lyrics)
@@ -171,7 +182,7 @@ class MainWindow(QMainWindow):
         self.about_button = AboutButton()
         self.about_button.clicked.connect(self.open_about)
         header.addWidget(self.about_button)
-        outer.addLayout(header)
+        outer.addWidget(self.main_header)
         self.splitter = QSplitter(Qt.Orientation.Horizontal)
         self.splitter.setChildrenCollapsible(False)
         self.workspace_stack = QStackedWidget()
@@ -345,25 +356,21 @@ class MainWindow(QMainWindow):
         self.title.setObjectName('title')
         self.title.setPlaceholderText('给今天一个标题')
         center.addWidget(self.title)
+        self.editor = ArticleEditor()
+        self.format_toolbar = EditorToolbar(self.editor, self.configure_default_typography, preferences=self.font_preferences)
+        self.bold = self.format_toolbar.bold
+        self.italic = self.format_toolbar.italic
+        self.underline = self.format_toolbar.underline
+        self.center_button = self.format_toolbar.alignment
+        center.addWidget(self.format_toolbar)
         toolbar = QHBoxLayout()
-        self.bold = self.button('加粗', self.toggle_bold)
-        self.italic = self.button('斜体', self.toggle_italic)
-        self.center_button = self.button('居中', self.toggle_center)
-        self.center_button.setCheckable(True)
-        self.center_button.setToolTip('将当前或选中段落居中，再次点击恢复左对齐')
         self.indent_button = self.button('自动缩进', self.editor_indent)
         self.indent_button.setToolTip('将全文各段首行缩进两个汉字，重复点击不叠加')
-        self.bold.setCheckable(True)
-        self.italic.setCheckable(True)
         self.image_button = self.button('插入图片', self.insert_image)
-        toolbar.addWidget(self.bold)
-        toolbar.addWidget(self.italic)
-        toolbar.addWidget(self.center_button)
         toolbar.addWidget(self.indent_button)
         toolbar.addWidget(self.image_button)
         toolbar.addStretch()
         center.addLayout(toolbar)
-        self.editor = ArticleEditor()
         self.editor.setObjectName('articleEditor')
         self.editor.setStyleSheet('QTextEdit#articleEditor { background: transparent; }')
         self.editor.viewport().setAutoFillBackground(False)
@@ -371,7 +378,7 @@ class MainWindow(QMainWindow):
         self.editor.imageActivated.connect(self.open_image)
         self.editor.setPlaceholderText('点击左侧「新建文章」，开始记录。')
         self.editor.document().setBaseUrl(QUrl.fromLocalFile(str(self.database.root) + '/'))
-        self.editor.document().setDefaultFont(QFont('Microsoft YaHei UI', 12))
+        self.editor.document().setDefaultFont(QFont(self.font_preferences.default_family, 12))
         center.addWidget(self.editor, 1)
         self.word_count = label('0 字符')
         center.addWidget(self.word_count)
@@ -530,6 +537,7 @@ class MainWindow(QMainWindow):
         from northdiary.ui.autumn_scene import AutumnScene
         self.autumn_scene = AutumnScene(self.lyrics_board, self.lyrics_button, self)
         self.autumn_scene.lyricsToggled.connect(self.set_scene_lyrics)
+        self.autumn_scene.fullscreenRequested.connect(self.set_scene_fullscreen)
         self.workspace_stack.addWidget(self.autumn_scene)
 
     def toggle_studio(self):
@@ -554,6 +562,8 @@ class MainWindow(QMainWindow):
             return False
         if current is self.splitter and not self.save(True):
             return False
+        if getattr(self, '_scene_fullscreen', False):
+            self.set_scene_fullscreen(False)
         self.timeline_preview_timer.stop()
         self.pending_timeline_date = None
         self.workspace_stack.setCurrentWidget(target)
@@ -605,13 +615,57 @@ class MainWindow(QMainWindow):
             self.fail(error)
 
     def toggle_fullscreen(self):
+        if self.workspace_stack.currentWidget() is self.autumn_scene:
+            self.toggle_scene_fullscreen()
+            return
         if self.isFullScreen():
             self.leave_fullscreen()
         else:
             self.was_maximized = self.isMaximized()
             self.showFullScreen()
 
+    def toggle_scene_fullscreen(self):
+        self.set_scene_fullscreen(not getattr(self, '_scene_fullscreen', False))
+
+    def set_scene_fullscreen(self, enabled):
+        if enabled == getattr(self, '_scene_fullscreen', False):
+            return
+        if enabled and self.workspace_stack.currentWidget() is not self.autumn_scene:
+            return
+        layout = self.centralWidget().layout()
+        self._scene_fullscreen = enabled
+        if enabled:
+            self._scene_previous_state = self.windowState()
+            self._scene_previous_margins = layout.contentsMargins()
+            self._scene_previous_spacing = layout.spacing()
+            self._scene_status_visible = self.statusBar().isVisible()
+            for panel in self.findChildren(FloatingPanel):
+                panel.hide()
+            self.main_header.hide()
+            self.statusBar().hide()
+            layout.setContentsMargins(0, 0, 0, 0)
+            layout.setSpacing(0)
+            self.showFullScreen()
+        else:
+            self.main_header.show()
+            self.statusBar().setVisible(self._scene_status_visible)
+            layout.setContentsMargins(self._scene_previous_margins)
+            layout.setSpacing(self._scene_previous_spacing)
+            if self._scene_previous_state & Qt.WindowState.WindowFullScreen:
+                self.showFullScreen()
+            elif self._scene_previous_state & Qt.WindowState.WindowMaximized:
+                self.showMaximized()
+            else:
+                self.showNormal()
+        self.autumn_scene.fullscreen = enabled
+        self.autumn_scene.send_state()
+        if self.autumn_scene.view:
+            self.autumn_scene.view.setFocus()
+
     def leave_fullscreen(self):
+        if getattr(self, '_scene_fullscreen', False):
+            self.set_scene_fullscreen(False)
+            return
         panels = [panel for panel in self.findChildren(FloatingPanel) if panel.isVisible()]
         if panels:
             for panel in panels:
@@ -671,6 +725,17 @@ class MainWindow(QMainWindow):
     def sync_format_buttons(self, fmt):
         self.bold.setChecked(fmt.fontWeight() >= QFont.Weight.Bold)
         self.italic.setChecked(fmt.fontItalic())
+        self.underline.setChecked(fmt.fontUnderline())
+
+    def configure_default_typography(self):
+        dialog = DefaultTypographyDialog(self.default_body_font, self)
+        if dialog.exec() == dialog.DialogCode.Accepted:
+            self.default_body_font = dialog.chosen_font()
+            self.ui_settings.setValue('editor/default_family', self.default_body_font.family())
+            self.ui_settings.setValue('editor/default_size', self.default_body_font.pointSizeF())
+            self.ui_settings.sync()
+            self.font_preferences.changed.emit()
+            self.statusBar().showMessage('默认排版已保存，将用于新文章。', 4000)
 
     def update_image_actions(self):
         if not hasattr(self, 'place_link_button'):
@@ -1224,7 +1289,8 @@ class MainWindow(QMainWindow):
         self.update_date_background()
         if article and not self.browse_date:
             self.timeline.setDate(self.date.date())
-        self.editor.setHtml(article.body_html if article else '')
+        self.editor.load_body(article.body_html if article else '', self.default_body_font)
+        self.format_toolbar.sync_format(self.editor.currentCharFormat())
         self.categories.setText('，'.join(self.repository.labels(article_id, 'categories')) if article else '')
         self.tags.set_values(self.repository.labels(article_id, 'tags') if article else [],
                              self.repository.temporary_tags(article_id) if article else [])
@@ -1276,6 +1342,7 @@ class MainWindow(QMainWindow):
             self.preview.setChecked(False)
         editable = bool(self.current_id) and not self.trash and not self.preview.isChecked()
         self.editor.setReadOnly(not editable)
+        self.format_toolbar.set_editable(editable)
         self.editor.set_end_marker_visible(bool(self.current_id) and self.preview.isChecked() and not self.trash)
         for widget in (self.title, self.date, self.categories, self.tags, self.bold,
                        self.italic, self.center_button, self.indent_button, self.image_button, self.attachment_button, self.people_button,
@@ -1391,11 +1458,10 @@ class MainWindow(QMainWindow):
         self.editor.setFocus()
 
     def toggle_bold(self):
-        self.editor.setFontWeight(QFont.Weight.Normal if self.editor.fontWeight() >= QFont.Weight.Bold else QFont.Weight.Bold)
-        self.editor.setFocus()
+        self.format_toolbar.emphasis('bold')
 
     def sync_alignment_button(self):
-        self.center_button.setChecked(bool(self.editor.alignment() & Qt.AlignmentFlag.AlignHCenter))
+        self.format_toolbar.sync_alignment()
 
     def toggle_center(self):
         if not self.current_id or self.editor.isReadOnly():
@@ -1411,8 +1477,7 @@ class MainWindow(QMainWindow):
         self.editor.setFocus()
 
     def toggle_italic(self):
-        self.editor.setFontItalic(not self.editor.fontItalic())
-        self.editor.setFocus()
+        self.format_toolbar.emphasis('italic')
 
     def insert_image(self):
         path, _ = QFileDialog.getOpenFileName(self, '插入图片', '', '图片 (*.png *.jpg *.jpeg *.webp *.bmp)')

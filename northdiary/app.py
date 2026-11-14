@@ -32,6 +32,8 @@ def main():
     app.setApplicationVersion(__version__)
     app.setOrganizationName('NorthDiary')
     app.setStyle('Fusion')
+    from northdiary.ui.window_chrome import install_window_chrome
+    install_window_chrome()
     if args.verify_installation:
         from northdiary.services.installation_check import run_installation_check
         return run_installation_check(args.verify_installation)

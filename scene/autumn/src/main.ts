@@ -69,8 +69,8 @@ async function start(){
   $('pause').onclick=()=>{if(scene.quality.quality==='static'){scene.setQuality('light');scene.setPaused(false);}else scene.togglePause();};
   $('debug-toggle').onclick=()=>toggleDebug($('debug').hidden);$('debug-close').onclick=()=>toggleDebug(false);
   $('lyrics-toggle').onclick=()=>{if(isNative){nativeHost?.setLyricsEnabled($('lyrics-toggle').getAttribute('aria-pressed')!=='true');return;}lyrics.setDemo(!lyrics.demo);$('lyrics-toggle').setAttribute('aria-pressed',String(lyrics.demo));};
-  $('fullscreen').onclick=async()=>{if(isNative){document.body.classList.toggle('focus-scene');return;}try{if(document.fullscreenElement)await document.exitFullscreen();else await $('frame').requestFullscreen();}catch{toast('当前浏览器不支持全屏，请使用横屏或浏览器全屏模式。');}};
-  $('fs-exit').onclick=()=>{if(isNative)document.body.classList.remove('focus-scene');else void document.exitFullscreen();};$('fs-pause').onclick=()=>$('pause').click();$('fs-debug').onclick=()=>toggleDebug($('debug').hidden);
+  $('fullscreen').onclick=async()=>{if(isNative){nativeHost?.setSceneFullscreen(!document.body.classList.contains('native-fullscreen'));return;}try{if(document.fullscreenElement)await document.exitFullscreen();else await $('frame').requestFullscreen();}catch{toast('当前浏览器不支持全屏，请使用横屏或浏览器全屏模式。');}};
+  $('fs-exit').onclick=()=>{if(isNative)nativeHost?.setSceneFullscreen(false);else void document.exitFullscreen();};$('fs-pause').onclick=()=>$('pause').click();$('fs-debug').onclick=()=>toggleDebug($('debug').hidden);
   document.addEventListener('fullscreenchange',()=>{(document.fullscreenElement?$('frame'):document.body).append($('debug'));});
   for(const name of ['wind','count','water'] as const)$<HTMLInputElement>(name).oninput=e=>scene.setParameter(name,Number((e.target as HTMLInputElement).value));
   $<HTMLSelectElement>('quality').onchange=e=>scene.setQuality((e.target as HTMLSelectElement).value as Quality);
@@ -84,7 +84,7 @@ async function start(){
   names.near_canopy='近景密叶树冠';names.surface_leaves_far='远处水面漂叶';names.surface_leaves_near='近岸水面漂叶';
   for(const layer of scene.config.layers){if(!layer.asset&&!layer.dynamic)continue;const label=document.createElement('label');label.className='layer-row';const input=document.createElement('input');input.type='checkbox';input.checked=true;input.dataset.layer=layer.id;input.onchange=()=>{scene.layers.visible(layer.id,input.checked);scene.render();};label.append(input,document.createTextNode(names[layer.id]??layer.id));$('layers').append(label);}
   document.querySelector('.layers summary span')!.textContent=`${$('layers').children.length} 层`;
-  window.addEventListener('keydown',e=>{if(e.key==='Escape'){document.body.classList.remove('focus-scene');if(!$('debug').hidden)toggleDebug(false);}if((e.target as HTMLElement).matches('input,select,textarea,button'))return;if(e.code==='Space'){e.preventDefault();$('pause').click();}});
+  window.addEventListener('keydown',e=>{if(e.key==='Escape'){if(isNative){nativeHost?.setSceneFullscreen(false);}else document.body.classList.remove('focus-scene');if(!$('debug').hidden)toggleDebug(false);}if((e.target as HTMLElement).matches('input,select,textarea,button'))return;if(e.code==='Space'){e.preventDefault();$('pause').click();}});
   const stats=setInterval(()=>{
     $('fps').textContent=scene.quality.running?`${Math.round(scene.app.ticker.FPS)} FPS`:'已暂停';
     const wind=scene.wind.sample(scene.simulation.time);$('stat-wind').textContent=wind.toFixed(2);$('weather').textContent=`${wind<0?'西向':'东向'}${Math.abs(wind)>.85?'阵风':'微风'} · 秋日午后`;
@@ -96,13 +96,15 @@ async function start(){
     document.body.classList.add('native-scene');
     let wasActive = false;
     $('lyrics-toggle').lastElementChild!.textContent='同步歌词';
-    $('fullscreen').lastElementChild!.textContent='铺满场景';
-    $('fs-exit').textContent='退出铺满 ↙';
+    $('fullscreen').lastElementChild!.textContent='全屏';
+    $('fs-exit').textContent='退出全屏 ↙';
     $('debug-toggle').lastElementChild!.textContent='场景设置';
     $('fs-debug').textContent='场景设置';
     document.querySelector('.panel-footnote')!.textContent='已接入 NorthDiary 播放信息与双语歌词。参数仅控制当前场景。';
     connectHost(message=>{
       scene.setHostActive(message.active);
+      document.body.classList.toggle('native-fullscreen', Boolean(message.fullscreen));
+      if(message.fullscreen) document.getElementById('debug')!.hidden=true;
       if (message.active && !wasActive) document.body.classList.add('focus-scene');
       wasActive = message.active;
       $('lyrics-toggle').setAttribute('aria-pressed',String(message.lyricsEnabled));
@@ -116,3 +118,4 @@ async function start(){
  }
 }
 void start();
+

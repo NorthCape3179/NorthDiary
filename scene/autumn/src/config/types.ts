@@ -4,7 +4,7 @@ export interface SceneConfig {
   id: string; version: number; logicalSize: {width:number;height:number}; assetRoot:string; artStatus:string;
   render: {targetFps:number;quality:Quality};
   layers: {id:string;z:number;asset?:string;dynamic?:boolean}[];
-  assets: {branch:string;twig:string;canopy?:string;nearCanopy?:string;waterLeafAtlas?:string;clusters:string[];leaves:string[];reedStem:string;reedHead:string;waterMask:string;foregroundMask:string};
+  assets: {branch:string;twig:string;canopy?:string;nearCanopy?:string;waterLeafAtlas?:string;waterSurfaces?:string[];wildlife?:string[];clusters:string[];leaves:string[];reedStem:string;reedHead:string;waterMask:string;foregroundMask:string};
   wind: {baseX:number;gustPeriodSec:number;gustStrength:number};
   water: {polygon:Point[];flowX:number;flowY:number;rippleLifetimeSec:number;rippleMaxRadius:number;maxRipples:number;intensity:number};
   leaves: {count:number;maxPool:number;fallSpeedMin:number;fallSpeedMax:number;floatingLifetimeSec:number;surfaceCount?:number};
@@ -32,6 +32,12 @@ export function validateConfig(v:unknown): asserts v is SceneConfig {
   if(c.assets.canopy)path(c.assets.canopy);
   if(c.assets.nearCanopy)path(c.assets.nearCanopy);
   if(c.assets.waterLeafAtlas)path(c.assets.waterLeafAtlas);
+  for(const [files, count] of [[c.assets.waterSurfaces, 3], [c.assets.wildlife, 4]] as const){
+    if(files!==undefined){
+      if(!Array.isArray(files)||files.length!==count)fail('水面或动物素材数量');
+      for(const file of files)path(file);
+    }
+  }
   if(!c.wind||!c.water||!c.leaves)fail('动效参数缺失');
   number(c.wind.baseX,-2,2,'wind.baseX');number(c.wind.gustStrength,0,2,'gustStrength');number(c.wind.gustPeriodSec,1,120,'gustPeriodSec');
   number(c.leaves.count,0,40,'leaves.count');number(c.leaves.maxPool,80,128,'maxPool');number(c.leaves.fallSpeedMin,1,30,'fallSpeedMin');number(c.leaves.fallSpeedMax,c.leaves.fallSpeedMin,40,'fallSpeedMax');number(c.leaves.floatingLifetimeSec,1,120,'floatingLifetimeSec');

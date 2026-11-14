@@ -1,21 +1,25 @@
 """Native message cards with GitHub Markdown, tables and incremental reply updates."""
+import json
 import math
 
-from PySide6.QtCore import QEvent, QTimer, Qt
+from PySide6.QtCore import QEvent, QTimer, Qt, Signal
 from PySide6.QtGui import QBrush, QColor, QDesktopServices, QImage, QTextDocument, QTextTable, QTextLength, QTextOption
 from PySide6.QtWidgets import QApplication, QFrame, QHBoxLayout, QLabel, QScrollArea, QTextBrowser, QToolButton, QVBoxLayout, QWidget
 from shiboken6 import isValid
 
+from northdiary.services.ai_memory import report_text
 from northdiary.ui.theme import color, style_local
 
 
 class MessageText(QTextBrowser):
+    sourceRequested = Signal(str)
     def __init__(self, parent=None):
         super().__init__(parent)
         self.setFrameShape(QFrame.Shape.NoFrame)
         self.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
         self.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
         self.setWordWrapMode(QTextOption.WrapMode.WrapAtWordBoundaryOrAnywhere)
+        self.source_ids = frozenset()
         self.setOpenLinks(False)
         self.anchorClicked.connect(self.open_link)
         self.document().setDocumentMargin(0)
@@ -27,7 +31,9 @@ class MessageText(QTextBrowser):
         return QImage() if kind == QTextDocument.ResourceType.ImageResource else None
 
     def open_link(self, url):
-        if url.scheme().lower() in ('https', 'http'):
+        if url.scheme() == 'northdiary-source' and url.path() in self.source_ids:
+            self.sourceRequested.emit(url.path())
+        elif url.scheme().lower() in ('https', 'http'):
             QDesktopServices.openUrl(url)
 
     def wheelEvent(self, event):
@@ -179,6 +185,7 @@ class MessageCard(QFrame):
 
 
 class ChatTranscript(QScrollArea):
+    sourceRequested = Signal(str)
     def __init__(self, parent=None):
         super().__init__(parent)
         self.setObjectName('chatTranscript')
@@ -201,7 +208,7 @@ class ChatTranscript(QScrollArea):
         self.verticalScrollBar().sliderPressed.connect(lambda: setattr(self, '_stick_bottom', False))
         self.set_turns([])
 
-    def set_turns(self, turns, describe_status=None):
+    def set_turns(self, turns, describe_status=None, *, memory=False):
         old_position = self.verticalScrollBar().value()
         same = bool(turns) and turns[0]['conversation_id'] == self.conversation_id
         follow = not same or old_position >= self.verticalScrollBar().maximum() - 35
@@ -225,7 +232,11 @@ class ChatTranscript(QScrollArea):
             stamp = turn['created_at'][11:16]
             self.add_card('user', question, stamp=stamp)
             status = describe_status(turn) if describe_status and turn['status'] not in ('complete', 'running') else ''
-            self.last_reply = self.add_card('assistant', turn['response'], turn['model'], stamp, status)
+            response = report_text(turn['response']) if memory else turn['response']
+            self.last_reply = self.add_card('assistant', response, turn['model'], stamp, status)
+            if memory:
+                self.last_reply.body.source_ids = frozenset(json.loads(turn['article_ids']))
+                self.last_reply.body.sourceRequested.connect(self.sourceRequested.emit)
         self.rows.addStretch()
         self._stick_bottom = follow
         self.resize_cards()

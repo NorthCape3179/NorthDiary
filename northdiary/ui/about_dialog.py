@@ -102,8 +102,14 @@ td {{padding:12px;vertical-align:top;}}
 </ul>
 
 <a name="changes"></a><h2>更新日志</h2>
+<h3>v1.8.1 · 排版与回顾</h3><ul>
+<li>新增字体、字号、段落对齐及默认排版，EPUB 导出保留可移植格式。</li>
+<li>导出列表增加搜索、全选、反选与选择统计。</li>
+<li>新增 AI 记忆回顾、关联核对与来源文章跳转。</li>
+<li>调整 Windows 窗口、湖面生物、场景氛围及歌词兼容读取。</li>
+</ul>
 <p class="muted">历史版本：<a href="#v15">v1.5</a> · <a href="#v14">v1.4</a> · <a href="#v13">v1.3</a> · <a href="#v12">v1.2</a> · <a href="#v11">v1.1</a> · <a href="#v10">v1.0</a></p>
-<h3>v{version} · AI 工作室、同步歌词与秋日湖畔</h3><ul>
+<h3>v1.8.0 · AI 工作室、同步歌词与秋日湖畔</h3><ul>
 <li>接入 DeepSeek，支持流式对话、文章选择与发送确认，以及点评、分析和创作。</li>
 <li>AI 作品库支持版本历史、关联原文、TXT / EPUB 导出及另存为文章。</li>
 <li>加入网易云同步歌词，支持译文、字体与字号设置。</li>

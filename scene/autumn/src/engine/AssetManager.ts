@@ -6,6 +6,7 @@ export class AssetManager {
   private urls:string[]=[];
   async load(c:SceneConfig){
     const files=new Set([...c.layers.flatMap(l=>l.asset?[l.asset]:[]),...(c.assets.canopy?[c.assets.canopy]:[]),...(c.assets.nearCanopy?[c.assets.nearCanopy]:[]),...(c.nearCanopies??[]).flatMap(p=>p.asset?[p.asset]:[]),...(c.assets.waterLeafAtlas?[c.assets.waterLeafAtlas]:[]),c.assets.branch,c.assets.twig,...c.assets.clusters,...c.assets.leaves,c.assets.reedStem,c.assets.reedHead,c.assets.waterMask,c.assets.foregroundMask]);
+    for (const file of [...(c.assets.waterSurfaces ?? []), ...(c.assets.wildlife ?? [])]) files.add(file);
     await Promise.all([...files].map(async file=>{
       const url=import.meta.env.BASE_URL+c.assetRoot+file;
       try{const texture=await Assets.load<Texture>(url);texture.source.scaleMode='nearest';this.textures.set(file,texture);this.urls.push(url);}

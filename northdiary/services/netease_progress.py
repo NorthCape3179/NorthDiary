@@ -14,10 +14,17 @@ import sys
 import time
 
 
-# cloudmusic.dll shipped with NetEase 3.1.41.205529 x64, verified locally.
+# cloudmusic.dll builds verified locally against live playback values.
 BUILDS = {
+    # NetEase 3.1.41.205529 x64.
     '7f667f876caf94bc3dac3b0070d3e495117005fafdcf18b6aaa51eb004edac8c':
         (41054208, 0x21A74D8, 0x2214778),
+    # NetEase 3.1.42.205594 x64 retains the two playback addresses.
+    '557d7706dedc8556a8bd279d4dfe2bc05b80ad729a8749caccd9e29916935493':
+        (41054208, 0x21A74D8, 0x2214778),
+    # NetEase 3.1.43.205627 x64: playback globals moved in this build.
+    '48f4b79fc0eb7fbcb955835463a71cd866c81055b0a546990e8ab644e886b920':
+        (41058304, 0x21A84D8, 0x2215798),
 }
 
 

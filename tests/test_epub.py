@@ -109,7 +109,7 @@ class EpubTests(unittest.TestCase):
             data = archive.read('EPUB/chapter-1.xhtml').decode()
             self.assertNotIn('-qt-', data)
             self.assertNotIn('onclick', data)
-            self.assertNotIn('font-family', data)
+            self.assertIn('font-family: Arial', data)
             self.assertNotIn('坏脚本', data)
             self.assertNotIn('iframe', data)
             self.assertNotIn('width="9000"', data)

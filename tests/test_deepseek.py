@@ -21,7 +21,7 @@ from northdiary.services.credentials import WindowsDPAPI
 from northdiary.services.deepseek import DeepSeekClient
 from northdiary.services.deepseek_credentials import DeepSeekCredentialStore
 from northdiary.storage.ai_repository import AIRepository
-from northdiary.storage.database import Database, SCHEMA_VERSION
+from northdiary.storage.database import Database
 from northdiary.storage.repository import ArticleRepository
 from northdiary.ui.ai_sources import ArticleSelectionDialog, RequestPreviewDialog, SourceArticle
 from northdiary.ui.ai_studio import AIStudio
@@ -317,15 +317,13 @@ class PersistenceTests(unittest.TestCase):
             repo = ArticleRepository(db)
             article = repo.create()
             with db.connection:
-                db.connection.execute('DROP TABLE ai_work_versions')
-                db.connection.execute('DROP TABLE ai_works')
                 db.connection.execute('DROP TABLE ai_turns')
                 db.connection.execute('DROP TABLE ai_conversations')
                 db.connection.execute('PRAGMA user_version=7')
             db.close()
             migrated = Database(root)
             self.assertEqual(ArticleRepository(migrated).get(article.id).title, article.title)
-            self.assertEqual(migrated.connection.execute('PRAGMA user_version').fetchone()[0], SCHEMA_VERSION)
+            self.assertEqual(migrated.connection.execute('PRAGMA user_version').fetchone()[0], 8)
             backups = list((root / 'backups').glob('before-v8-*'))
             self.assertEqual(len(backups), 1)
             with closing(sqlite3.connect(backups[0])) as before:

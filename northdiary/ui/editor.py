@@ -1,5 +1,5 @@
-from PySide6.QtCore import Signal, Qt, QTimer, QRectF, QPointF
-from PySide6.QtGui import QTextDocument, QTextCharFormat, QColor, QTextCursor, QFontMetricsF, QPainter, QPen
+from PySide6.QtCore import Signal, Qt, QTimer, QRectF, QPointF, QEvent
+from PySide6.QtGui import QTextDocument, QTextCharFormat, QColor, QTextCursor, QFont, QFontMetricsF, QPainter, QPen
 from PySide6.QtWidgets import QTextEdit
 
 
@@ -8,6 +8,7 @@ class ArticleEditor(QTextEdit):
 
     def __init__(self, parent=None):
         super().__init__(parent)
+        self._preserve_document_font = True
         self.end_marker_visible = False
         self._updating_end_range = False
         self._end_timer = QTimer(self)
@@ -15,6 +16,25 @@ class ArticleEditor(QTextEdit):
         self._end_timer.timeout.connect(self._refresh_end_range)
         self.document().documentLayout().documentSizeChanged.connect(self._queue_end_range)
         self.verticalScrollBar().rangeChanged.connect(self._queue_end_range)
+
+    def changeEvent(self, event):
+        if event.type() == QEvent.Type.FontChange and getattr(self, '_preserve_document_font', False):
+            # QWidget's UI stylesheet must not replace the diary's document font.
+            font = QFont(self.document().defaultFont())
+            super().changeEvent(event)
+            self.document().setDefaultFont(font)
+        else:
+            super().changeEvent(event)
+
+    def load_body(self, source, default_font):
+        """Each saved document owns its typography; preferences seed new entries."""
+        from PySide6.QtGui import QTextCharFormat
+        self.document().setDefaultFont(default_font)
+        self.setCurrentCharFormat(QTextCharFormat())
+        self.setHtml(source or '')
+        if not source:
+            self.document().setDefaultFont(default_font)
+            self.setCurrentCharFormat(QTextCharFormat())
 
     def set_end_marker_visible(self, visible):
         self.end_marker_visible = bool(visible)

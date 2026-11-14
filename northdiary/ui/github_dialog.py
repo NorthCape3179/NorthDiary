@@ -371,6 +371,9 @@ class GitHubDialog(QDialog):
             return
         dialog = ExportDialog(self.main_window.repository.list(), self)
         dialog.setWindowTitle('选择要上传到 GitHub 的文章')
+        space = '时间线之外' if self.main_window.outside else '时间线之内'
+        dialog.scope_label.setText(f'选择范围为{space}的文章。批量操作仅影响当前列表；单个文章包最多 20 MiB。')
+        dialog.confirm_button.setText('确认选择并上传')
         if dialog.exec() != dialog.DialogCode.Accepted:
             return
         path = Path(self.temp.name) / 'upload.epub'

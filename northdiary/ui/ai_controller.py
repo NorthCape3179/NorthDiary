@@ -10,6 +10,7 @@ from northdiary.services.deepseek import DEFAULT_MODELS, DeepSeekClient
 from northdiary.services.deepseek_credentials import DeepSeekCredentialStore
 from northdiary.storage.ai_repository import AIRepository
 from northdiary.ui.ai_sources import RequestPreviewDialog
+from northdiary.services.ai_memory import report_text, review_candidates
 
 
 class StudioController(QObject):
@@ -209,13 +210,15 @@ class StudioController(QObject):
         articles = self.view.sources.resolve(self.view.article_ids)
         # Deleted/unconfirmed sources are removed before preparing a request.
         self.view.set_articles(a.id for a in articles)
-        if mode in ('appreciation', 'analysis') and not articles:
+        if mode in ('appreciation', 'analysis', 'memory') and not articles:
             raise ValueError('请先选择至少一篇文章')
         if mode == 'writing' and not articles and not self.view.tools[mode]['prompt'].toPlainText().strip() and not any(self.view.tools[mode]['story_notes'].values()) and not self.repo.history(self.active[mode]):
             raise ValueError('请选择文章，或填写创作要求、故事设定')
         instruction = self.view.request_instruction(mode)
         if mode == 'chat' and not self.view.tools[mode]['prompt'].toPlainText().strip() and not regenerate:
             raise ValueError('请先写下你的问题')
+        if mode == 'memory' and not regenerate and self.view.tools[mode]['kind'].currentIndex() == 1 and not self.view.tools[mode]['prompt'].toPlainText().strip():
+            raise ValueError('请写下想回顾的问题')
         conversation = self.repo.get(self.active[mode])
         notice = ''
         if conversation and conversation['source_fingerprint'] != source_fingerprint(articles):
@@ -392,6 +395,8 @@ class StudioController(QObject):
         if not self.regenerating_work:
             return
         turn = next(t for t in self.repo.turns(self.active[mode]) if t['id'] == turn_id)
+        if mode == 'memory':
+            turn = dict(turn, response=report_text(turn['response']))
         try:
             number = self.view.library.append_generation(self.regenerating_work, turn)
             self.view.tools[mode]['status'].setText(self.view.tools[mode]['status'].text() + f' · 作品已新增 v{number}')
@@ -410,12 +415,14 @@ class StudioController(QObject):
             self.view.library.show_work(existing)
             return
         from northdiary.ui.ai_work_editor import SaveWorkDialog
-        category = {'appreciation': '点评', 'analysis': '分析报告', 'writing': '故事', 'chat': '创作草稿'}[mode]
+        category = {'appreciation': '点评', 'analysis': '分析报告', 'writing': '故事', 'chat': '创作草稿', 'memory': '分析报告'}[mode]
         if mode == 'appreciation' and '类型：逐段批注' in turn['instruction']:
             category = '旁注'
         if mode == 'writing' and any('步骤：' + step in turn['instruction'] for step in ('故事大纲', '人物设定', '连续性整理')):
             category = '创作草稿'
         conversation = self.repo.get(self.active[mode])
+        if mode == 'memory':
+            turn = dict(turn, response=report_text(turn['response']))
         data = self.view.library.generation_data(turn, conversation['title'], category)
         dialog = SaveWorkDialog(self.view.library.repo, data, self.view, existing)
         try:
@@ -428,9 +435,43 @@ class StudioController(QObject):
     def render(self, mode):
         tool = self.view.tools[mode]
         turns = self.repo.turns(self.active[mode])
-        tool['output'].set_turns(turns, self.status_text)
+        tool['output'].set_turns(turns, self.status_text, memory=mode == 'memory')
         if turns:
             tool['status'].setText(self.status_text(turns[-1]))
+
+    def review_memory(self):
+        from northdiary.ui.ai_memory_review import MemoryReviewDialog
+
+        tool = self.view.tools['memory']
+        turns = self.repo.turns(self.active['memory'])
+        if not turns:
+            return
+        turn = turns[-1]
+        candidates = review_candidates(turn)
+        if not candidates:
+            tool['status'].setText('这份报告没有可核对的关联。')
+            return
+        key = 'memoryReview/' + turn['id']
+        decisions = {index: self.settings.value(f'{key}/{index}', 'pending')
+                     for index, *_ in candidates}
+        ids = set(json.loads(turn['article_ids']))
+        titles = {article.id: article.title for article in self.view.sources.list() if article.id in ids}
+        dialog = MemoryReviewDialog(candidates, decisions, titles, self.view)
+        try:
+            if dialog.exec() != dialog.DialogCode.Accepted:
+                return
+            if dialog.source_id:
+                self.view.articleRequested.emit(dialog.source_id)
+                return
+            for index, decision in dialog.decisions.items():
+                self.settings.setValue(f'{key}/{index}', decision)
+            self.settings.sync()
+            if self.settings.status() == QSettings.Status.NoError:
+                tool['status'].setText('已保存这份报告的关联判断。')
+            else:
+                tool['status'].setText('关联判断保存失败，请检查数据目录。')
+        finally:
+            dialog.deleteLater()
 
     @staticmethod
     def status_text(turn):
@@ -457,6 +498,8 @@ class StudioController(QObject):
             content = self.client.content
         else:
             content = next((t['response'] for t in reversed(self.repo.turns(self.active[mode])) if t['response']), '')
+        if mode == 'memory':
+            content = report_text(content)
         if content:
             QApplication.clipboard().setText(content)
 
@@ -484,6 +527,9 @@ class StudioController(QObject):
             tool['send'].setText('重试保存' if self.pending_result and self.pending_result[0] == mode else ('发送' if mode == 'chat' else '生成'))
             tool['stop'].setEnabled(busy and self.active_mode == mode)
             turns = self.repo.turns(self.active[mode])
+            if mode == 'memory':
+                tool['shortcuts'].setEnabled(not blocked)
+                tool['review'].setEnabled(not blocked and bool(turns and review_candidates(turns[-1])))
             tool['regenerate'].setEnabled(not blocked and bool(turns))
             tool['copy'].setEnabled(any(t['response'] for t in turns) or self.active_mode == mode or bool(self.pending_result and self.pending_result[0] == mode))
             for key in ('save_work', 'edit_work'):

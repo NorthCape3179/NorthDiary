@@ -6,11 +6,11 @@
 
 NorthDiary 是一款 Windows 本地图文日记与个人文集软件。用文章保存日常，用时间线整理往事，用人物档案串联故事，让零散的记忆逐渐形成属于自己的个人档案。
 
-[下载 v1.8.0 脚本版](https://github.com/NorthCape3179/NorthDiary/releases/tag/v1.8.0) · [v1.8.0 更新日志](docs/RELEASE-v1.8.0.md) · [开源许可证](LICENSE)
+[下载 v1.8.1 脚本版](https://github.com/NorthCape3179/NorthDiary/releases/tag/v1.8.1) · [v1.8.1 更新日志](docs/RELEASE-v1.8.1.md) · [开源许可证](LICENSE)
 
-## 运行 v1.8.0
+## 运行 v1.8.1
 
-Windows 10 / 11 x64，需安装 Python 3.11–3.13。下载并解压发布页的脚本版 ZIP，双击 `start.cmd`。首次启动会创建虚拟环境并联网安装依赖。升级旧目录时，请用该目录的 Python 执行 `.venv\Scripts\python.exe -m pip install -r requirements.txt`，然后运行脚本。v1.8.0 提供源码和脚本版。
+Windows 10 / 11 x64，需安装 Python 3.11–3.13。下载并解压发布页的脚本版 ZIP，双击 `start.cmd`。首次启动会创建虚拟环境并联网安装依赖。升级旧目录时，请用该目录的 Python 执行 `.venv\Scripts\python.exe -m pip install -r requirements.txt`，然后运行脚本。v1.8.1 提供源码和脚本版。
 
 ## 软件特色
 

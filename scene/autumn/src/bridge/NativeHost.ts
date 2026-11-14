@@ -1,6 +1,6 @@
 import type { Playback } from './SceneBridge';
-export interface HostState {type:'hostState';active:boolean;lyricsEnabled:boolean;playback:Playback|null}
-interface Host {ready:()=>void;setLyricsEnabled:(enabled:boolean)=>void;message:{connect:(callback:(value:string)=>void)=>void}}
+export interface HostState {type:'hostState';active:boolean;fullscreen?:boolean;lyricsEnabled:boolean;playback:Playback|null}
+interface Host {ready:()=>void;setLyricsEnabled:(enabled:boolean)=>void;setSceneFullscreen:(enabled:boolean)=>void;message:{connect:(callback:(value:string)=>void)=>void}}
 declare global {interface Window {
   qt?:{webChannelTransport:unknown};
   QWebChannel?:new(transport:unknown,callback:(channel:{objects:{northDiaryHost:Host}})=>void)=>unknown;

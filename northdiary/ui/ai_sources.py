@@ -58,7 +58,7 @@ class ArticleSources:
     def __init__(self, database):
         self.db = database.connection
 
-    def list(self, query='', space=None, category=None, tag=None):
+    def list(self, query='', space=None, category=None, tag=None, *, date_prefix='', person=None):
         outside = 'EXISTS (SELECT 1 FROM outside_articles o WHERE o.article_id=a.id)'
         sql = f'''SELECT a.id,a.title,a.diary_date,{outside} AS outside
                   FROM articles a WHERE a.deleted_at IS NULL
@@ -78,6 +78,13 @@ class ArticleSources:
             sql += ''' AND EXISTS (SELECT 1 FROM article_tags r JOIN tags t
                        ON t.id=r.tag_id WHERE r.article_id=a.id AND t.name=?)'''
             args.append(tag)
+        if date_prefix.strip():
+            prefix = date_prefix.strip()
+            sql += ' AND substr(a.diary_date, 1, ?)=?'
+            args.extend([len(prefix), prefix])
+        if person:
+            sql += ' AND EXISTS (SELECT 1 FROM article_people ap WHERE ap.article_id=a.id AND ap.person_id=?)'
+            args.append(person)
         sql += ' ORDER BY a.diary_date DESC,a.created_at DESC,a.id'
         return [SourceArticle(r['id'], r['title'], r['diary_date'], bool(r['outside']))
                 for r in self.db.execute(sql, args)]
@@ -103,7 +110,7 @@ def inherit_theme(dialog, parent):
 
 
 class ArticleSelectionDialog(QDialog):
-    def __init__(self, database, selected=(), parent=None):
+    def __init__(self, database, selected=(), parent=None, *, memory=False):
         super().__init__(parent)
         self.sources = ArticleSources(database)
         self.selected = dict.fromkeys(selected)
@@ -141,6 +148,21 @@ class ArticleSelectionDialog(QDialog):
             filters.addWidget(combo, 1)
             combo.currentIndexChanged.connect(self.refresh)
         layout.addLayout(filters)
+        self.date_prefix = self.person = None
+        if memory:
+            memory_filters = QHBoxLayout()
+            self.date_prefix = QLineEdit()
+            self.date_prefix.setPlaceholderText('按日期筛选，如 2024 或 2024-05')
+            self.date_prefix.setClearButtonEnabled(True)
+            self.person = ComboBox()
+            self.person.addItem('所有人物', None)
+            for key, name, code in self.sources.db.execute('SELECT id,name,code FROM people ORDER BY name,code'):
+                self.person.addItem(f'{name} · {code}', key)
+            memory_filters.addWidget(self.date_prefix, 1)
+            memory_filters.addWidget(self.person, 1)
+            layout.addLayout(memory_filters)
+            self.date_prefix.textChanged.connect(self.refresh)
+            self.person.currentIndexChanged.connect(self.refresh)
         self.list = QListWidget()
         self.list.setItemDelegate(SourceDelegate(self.list))
         self.list.setAccessibleName('可授权文章列表')
@@ -155,6 +177,11 @@ class ArticleSelectionDialog(QDialog):
         self.select_all.setToolTip('只勾选当前分类、标签、空间及搜索条件下的全部结果；保留其他已选文章')
         self.select_all.clicked.connect(self.select_visible)
         row.addWidget(self.select_all)
+        if memory:
+            all_articles = QPushButton('选择全部文章')
+            all_articles.setToolTip('选择两个时间线空间的全部已确认文章，忽略当前筛选条件')
+            all_articles.clicked.connect(self.select_every_article)
+            row.addWidget(all_articles)
         clear = QPushButton('清空已选')
         clear.clicked.connect(self.clear_selection)
         row.addWidget(clear)
@@ -175,7 +202,9 @@ class ArticleSelectionDialog(QDialog):
 
     def refresh(self):
         rows = self.sources.list(self.search.text(), self.space.currentData(),
-                                 self.category.currentData(), self.tag.currentData())
+                                 self.category.currentData(), self.tag.currentData(),
+                                 date_prefix=self.date_prefix.text() if self.date_prefix else '',
+                                 person=self.person.currentData() if self.person else None)
         self.list.blockSignals(True)
         self.list.clear()
         for article in rows:
@@ -210,6 +239,10 @@ class ArticleSelectionDialog(QDialog):
             item.setCheckState(Qt.CheckState.Checked)
         self.list.blockSignals(False)
         self.update_count()
+
+    def select_every_article(self):
+        self.selected = dict.fromkeys(article.id for article in self.sources.list())
+        self.refresh()
 
     def clear_selection(self):
         self.selected.clear()

@@ -38,6 +38,21 @@ QSplitter::handle { background: transparent; width: 9px; }
 QStatusBar { color: #708075; background: #f6f5f1; }
 QMenuBar, QMenu { background: #f6f5f1; }
 QToolTip { background: #fffefa; color: #273b37; border: 1px solid #d4ddd1; }
+QDialog { background: #f6f5f1; border: 1px solid #d4ddd1; }
+QWidget#windowTitleBar { background: #f6f5f1; border: none; border-bottom: 1px solid #e3e5dd; }
+QLabel#windowCaption { color: #75827a; font-size: 12px; background: transparent; }
+QToolButton#captionButton, QToolButton#captionClose { background: transparent; border: none; border-radius: 5px; padding: 0; }
+QToolButton#captionButton:hover { background: #e0e8db; }
+QToolButton#captionClose:hover { background: #c64848; }
+QWidget#formatToolbar { background: transparent; }
+QToolButton#formatTool { background: transparent; border: none; border-radius: 5px; padding: 0; }
+QToolButton#formatTool:hover { background: #e0e8db; }
+QToolButton#formatTool:checked { background: #d3e2d2; color: #244d42; }
+QToolButton#formatTool:disabled { color: #a0aaa0; }
+QWidget#formatToolbar QComboBox { padding: 4px 20px 4px 6px; }
+QDoubleSpinBox, QSpinBox { background: #fffefa; border: 1px solid #dce2d8; border-radius: 6px; padding: 5px; }
+QDialog QDialogButtonBox { background: transparent; }
+QLabel#typographyPreview { background: #fffefa; border: 1px solid #e3e5dd; border-radius: 8px; }
 '''
 
 # One mapping is shared by stylesheets, painted controls and popup palettes.
@@ -84,8 +99,11 @@ def themed_css(css, dark, name=None):
 
 def color(value, widget):
     from PySide6.QtGui import QColor, QPalette
-    dark = widget.palette().color(QPalette.ColorRole.Window).lightness() < 128
-    return QColor(theme_mapping(dark, theme_name(widget)).get(value, value))
+    name = theme_name(widget)
+    # Transparent controls may report a black Window palette even in light mode.
+    # The explicit ancestor theme takes precedence for every painted control.
+    dark = name in ('dark', 'wine') if name else widget.palette().color(QPalette.ColorRole.Window).lightness() < 128
+    return QColor(theme_mapping(dark, name).get(value, value))
 
 
 def style_local(widget, dark):

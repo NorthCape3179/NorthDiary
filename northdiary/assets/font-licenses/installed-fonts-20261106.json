@@ -1,0 +1,311 @@
+{
+  "reviewed": "2026-11-06",
+  "fonts": [
+    {
+      "key": "misans",
+      "label": "MiSans（小米）",
+      "family": "MiSans",
+      "license_name": "MiSans 免费商用许可",
+      "source_url": "https://hyperos.mi.com/font/zh/faq/",
+      "license_url": "https://hyperos.mi.com/font-download/MiSans%E5%AD%97%E4%BD%93%E7%9F%A5%E8%AF%86%E4%BA%A7%E6%9D%83%E8%AE%B8%E5%8F%AF%E5%8D%8F%E8%AE%AE.pdf",
+      "note": "中文正文；本软件使用了 MiSans 字体。",
+      "files": [
+        {
+          "base": "windows",
+          "path": "Fonts/MiSans-Regular.otf",
+          "sha256": "962c1755fbfe9e0ac9762c9ec954784dcf0beb8cc2731537abddf8371b164b9a"
+        }
+      ]
+    },
+    {
+      "key": "lato",
+      "label": "Lato",
+      "family": "Lato",
+      "license_name": "SIL OFL 1.1",
+      "source_url": "https://github.com/google/fonts/blob/main/ofl/lato/OFL.txt",
+      "license_url": "https://github.com/google/fonts/blob/main/ofl/lato/OFL.txt",
+      "note": "拉丁文字",
+      "files": [
+        {
+          "base": "windows",
+          "path": "Fonts/Lato-Black.ttf",
+          "sha256": "4ed66fa3928ae769205635c916b4f9e6a63f6a77f5d9693ac31a83d0d96ae1ef"
+        },
+        {
+          "base": "windows",
+          "path": "Fonts/Lato-BlackItalic.ttf",
+          "sha256": "0ae5310fe1ed156ab6af26a8c0be61aee44c166896765d5a9473670ad9c28dbc"
+        },
+        {
+          "base": "windows",
+          "path": "Fonts/Lato-Bold.ttf",
+          "sha256": "bf1b8130069b44b9148eeece35e5423bedac49777ba746615b826b8276574a7b"
+        },
+        {
+          "base": "windows",
+          "path": "Fonts/Lato-BoldItalic.ttf",
+          "sha256": "e2f9244fdcd20840f2480f91370cea885bf99230c49d153199fa64853ad74b69"
+        },
+        {
+          "base": "windows",
+          "path": "Fonts/Lato-Hairline.ttf",
+          "sha256": "80dc280e8a05b80d7a566a15b379bba422a776e5bc58b92a9b8f3a9bbea7eb03"
+        },
+        {
+          "base": "windows",
+          "path": "Fonts/Lato-HairlineItalic.ttf",
+          "sha256": "9e469d156b0471556f202358939cc7fd2cab421659e3a3638136431d3c46ec8b"
+        },
+        {
+          "base": "windows",
+          "path": "Fonts/Lato-Heavy.ttf",
+          "sha256": "4ce7ec20cd9c391b271b4149ad8cf5a71301d98965403f14fc5530d017146dbb"
+        },
+        {
+          "base": "windows",
+          "path": "Fonts/Lato-HeavyItalic.ttf",
+          "sha256": "4c9af8df580f1b7a2e3336d69b225a38364a636dc014d8fd9c2b72adea68dd2d"
+        },
+        {
+          "base": "windows",
+          "path": "Fonts/Lato-Italic.ttf",
+          "sha256": "8c863f833b12bc8486671d26e3a58b13b0f9eaff1d6b10398e7c107a9b7ee05a"
+        },
+        {
+          "base": "windows",
+          "path": "Fonts/Lato-Light.ttf",
+          "sha256": "e9d59afb6d9cb9cf6e8d8159d4639d5b577e29efc64a15182f228659cfc1e818"
+        },
+        {
+          "base": "windows",
+          "path": "Fonts/Lato-LightItalic.ttf",
+          "sha256": "8926c41622b7400d7f6f7dbf31cea50495f31230cf40904b8b83e634bf3cf6c6"
+        },
+        {
+          "base": "windows",
+          "path": "Fonts/Lato-Medium.ttf",
+          "sha256": "be8bbf7105500e8fc1f9429307fb396905a0e6cff63fe1eb751bb319d0f1b0db"
+        },
+        {
+          "base": "windows",
+          "path": "Fonts/Lato-MediumItalic.ttf",
+          "sha256": "0739be048a122e3abb0cb731b49f6c07ac212a54eb182ebaa25a65829d5ac0cf"
+        },
+        {
+          "base": "windows",
+          "path": "Fonts/Lato-Regular.ttf",
+          "sha256": "6f6940be0835c3ddec9199e5fc42be4cbc61ebcfd58c623fdf719366253f1780"
+        },
+        {
+          "base": "windows",
+          "path": "Fonts/Lato-Semibold.ttf",
+          "sha256": "2dc5d31e2cf1e29f3430eb2dfa1ba9911e08ee401b61dd12f40e0acb047a17a3"
+        },
+        {
+          "base": "windows",
+          "path": "Fonts/Lato-SemiboldItalic.ttf",
+          "sha256": "0aa594079c213d1dba417a2fc34b8170445d0f03af02a3b35f16b9b775eef398"
+        },
+        {
+          "base": "windows",
+          "path": "Fonts/Lato-Thin.ttf",
+          "sha256": "11b51a8bb6361be3e4642de40b49c210ecb4a19b8bf630f3335ff07813726f3b"
+        },
+        {
+          "base": "windows",
+          "path": "Fonts/Lato-ThinItalic.ttf",
+          "sha256": "c8ad5351e800f8286890a4c8a57d849207cb930287caeb40c4ffbe538f2f3e0e"
+        }
+      ]
+    },
+    {
+      "key": "academico",
+      "label": "Academico",
+      "family": "Academico",
+      "license_name": "SIL OFL 1.1",
+      "source_url": "https://download.steinberg.net/webcontent/products/dorico/Dorico_21_Detailed_Feature_List.pdf",
+      "license_url": "https://download.steinberg.net/webcontent/products/dorico/Dorico_21_Detailed_Feature_List.pdf",
+      "note": "拉丁衬线文字；本地字体内嵌完整 OFL 许可",
+      "files": [
+        {
+          "base": "windows",
+          "path": "Fonts/Academico-Bold.otf",
+          "sha256": "46bc655dd772d43cfedb560240eb4ac2b8885770a9098208759e69c9675f2e58"
+        },
+        {
+          "base": "windows",
+          "path": "Fonts/Academico-BoldItalic.otf",
+          "sha256": "bb1586904eb85f0d44e8ccafe3fdfbfb5bfb2dad540e7b21716385f2e41f4bd9"
+        },
+        {
+          "base": "windows",
+          "path": "Fonts/Academico-Italic.otf",
+          "sha256": "fe2293bb4362bfe5e2cf859687e4f8bcc5b2840fc2159c8f7839f067f97051b9"
+        },
+        {
+          "base": "windows",
+          "path": "Fonts/Academico-Regular.otf",
+          "sha256": "d5a49175bb77df66116ece149554dc38e457902411d8f7e2e7a36e4ab9958c93"
+        }
+      ]
+    },
+    {
+      "key": "noto-sans-jp",
+      "label": "Noto 日文黑体",
+      "family": "Noto Sans JP",
+      "license_name": "SIL OFL 1.1",
+      "source_url": "https://github.com/google/fonts/blob/main/ofl/notosansjp/OFL.txt",
+      "license_url": "https://github.com/google/fonts/blob/main/ofl/notosansjp/OFL.txt",
+      "note": "日文字形",
+      "files": [
+        {
+          "base": "windows",
+          "path": "Fonts/NotoSansJP-Black.otf",
+          "sha256": "12c6fe84c757c0ed0bfec33b9eb6fff331c6079aa184b1b61df11912ff97b831"
+        },
+        {
+          "base": "windows",
+          "path": "Fonts/NotoSansJP-Bold.otf",
+          "sha256": "dac20fe2d06a88e5e719e4c04e4fe188b256df2e157f197de1aeab249fba7789"
+        },
+        {
+          "base": "windows",
+          "path": "Fonts/NotoSansJP-DemiLight.otf",
+          "sha256": "7f697e7d4969fa366454037c5399e2d21fc110372db8aceef542fe6e4236bf3f"
+        },
+        {
+          "base": "windows",
+          "path": "Fonts/NotoSansJP-Light.otf",
+          "sha256": "6dec08bf5b3f243bdc2fd896e2d1aac9a8d47164cee8744a6e7e010fd5509bfd"
+        },
+        {
+          "base": "windows",
+          "path": "Fonts/NotoSansJP-Medium.otf",
+          "sha256": "ba7544b7d1081dbb51e62cb1105576927a0f049749e84ff594d271a1793ef999"
+        },
+        {
+          "base": "windows",
+          "path": "Fonts/NotoSansJP-Regular.otf",
+          "sha256": "3e8146c4ce0945f255cb9dbc12b392380af80bd117e0a60eae555c99c7e618da"
+        },
+        {
+          "base": "windows",
+          "path": "Fonts/NotoSansJP-Thin.otf",
+          "sha256": "0cede79237b519b2ce868352daa1d193dd5caad3057291b4be6c881963188a2c"
+        }
+      ]
+    },
+    {
+      "key": "sans-serif-collection",
+      "label": "Sans Serif Collection",
+      "family": "Sans Serif Collection",
+      "license_name": "SIL OFL 1.1",
+      "source_url": "https://github.com/notofonts/noto-docs/blob/main/docs/website/use.md",
+      "license_url": "https://github.com/notofonts/noto-docs/blob/main/docs/website/use.md",
+      "note": "多语种字形；本地字体声明 Noto 项目版权和 OFL 许可",
+      "files": [
+        {
+          "base": "windows",
+          "path": "Fonts/SansSerifCollection.ttf",
+          "sha256": "eb78c210d380fce7d3822b3a5ccfa808f1eb0390de6237f5460970679f393ce0"
+        }
+      ]
+    },
+    {
+      "key": "petaluma-script",
+      "label": "Petaluma Script",
+      "family": "Petaluma Script",
+      "license_name": "SIL OFL 1.1",
+      "source_url": "https://github.com/steinbergmedia/petaluma",
+      "license_url": "https://github.com/steinbergmedia/petaluma",
+      "note": "拉丁手写文字",
+      "files": [
+        {
+          "base": "windows",
+          "path": "Fonts/PetalumaScript.otf",
+          "sha256": "3b4be972cc9f857a7c1019ff49cd07cb083d5cc99058c0fb8563897fc75c32c8"
+        }
+      ]
+    },
+    {
+      "key": "bravura",
+      "label": "Bravura（乐谱）",
+      "family": "Bravura",
+      "license_name": "SIL OFL 1.1",
+      "source_url": "https://github.com/steinbergmedia/bravura/blob/master/LICENSE.txt",
+      "license_url": "https://github.com/steinbergmedia/bravura/blob/master/LICENSE.txt",
+      "note": "乐谱符号",
+      "files": [
+        {
+          "base": "windows",
+          "path": "Fonts/Bravura.otf",
+          "sha256": "1acac6740f1d711fcffa6293c907d3133d78609b19d4662a5a405a92289cba47"
+        }
+      ]
+    },
+    {
+      "key": "bravura-text",
+      "label": "Bravura Text（乐谱）",
+      "family": "Bravura Text",
+      "license_name": "SIL OFL 1.1",
+      "source_url": "https://github.com/steinbergmedia/bravura/blob/master/LICENSE.txt",
+      "license_url": "https://github.com/steinbergmedia/bravura/blob/master/LICENSE.txt",
+      "note": "乐谱符号",
+      "files": [
+        {
+          "base": "windows",
+          "path": "Fonts/BravuraText.otf",
+          "sha256": "bd5b1d0a43853e32eaa0851afe9a37e5967f88153270225890c32ae73d2a4942"
+        }
+      ]
+    },
+    {
+      "key": "petaluma",
+      "label": "Petaluma（乐谱）",
+      "family": "Petaluma",
+      "license_name": "SIL OFL 1.1",
+      "source_url": "https://github.com/steinbergmedia/petaluma",
+      "license_url": "https://github.com/steinbergmedia/petaluma",
+      "note": "乐谱符号",
+      "files": [
+        {
+          "base": "windows",
+          "path": "Fonts/Petaluma.otf",
+          "sha256": "6bce62180963df46e4f10ee90d75506cf3863656481d57cedef0b3ffe3ceacd8"
+        }
+      ]
+    },
+    {
+      "key": "petaluma-text",
+      "label": "Petaluma Text（乐谱）",
+      "family": "Petaluma Text",
+      "license_name": "SIL OFL 1.1",
+      "source_url": "https://github.com/steinbergmedia/petaluma",
+      "license_url": "https://github.com/steinbergmedia/petaluma",
+      "note": "乐谱符号",
+      "files": [
+        {
+          "base": "windows",
+          "path": "Fonts/PetalumaText.otf",
+          "sha256": "c38b268a123945c5c3abfa4e51116392e83929219c9f3d96268dd235ea674bd3"
+        }
+      ]
+    },
+    {
+      "key": "dejavu-math",
+      "label": "DejaVu Math（数学）",
+      "family": "DejaVu Math TeX Gyre",
+      "license_name": "Bitstream Vera / AMS / 公有领域扩展",
+      "source_url": "https://github.com/dejavu-fonts/dejavu-fonts/blob/master/LICENSE",
+      "license_url": "https://github.com/dejavu-fonts/dejavu-fonts/blob/master/LICENSE",
+      "note": "数学与拉丁字形",
+      "files": [
+        {
+          "base": "programdata",
+          "path": "Kingsoft/office6/omath/DejaVuMathTeXGyre.ttf",
+          "sha256": "40da67c0b6b03076504fbda4bf3e7b4f20b35999c98063019a3392fe9b1294fe"
+        }
+      ]
+    }
+  ]
+}

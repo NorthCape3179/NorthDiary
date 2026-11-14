@@ -97,7 +97,7 @@ class OutsideModeTests(unittest.TestCase):
     def test_v5_migration_keeps_existing_articles_inside_and_backs_up(self):
         path=self.root/'v5-data';old=Database(path);repo=ArticleRepository(old);key=repo.create().id
         with old.connection:
-            old.connection.executescript('DROP TABLE ai_work_versions; DROP TABLE ai_works; DROP TABLE ai_turns; DROP TABLE ai_conversations; DROP TABLE outside_articles; PRAGMA user_version=5;')
+            old.connection.executescript('DROP TABLE ai_turns; DROP TABLE ai_conversations; DROP TABLE outside_articles; PRAGMA user_version=5;')
         old.close()
         migrated=Database(path)
         try:

@@ -90,3 +90,11 @@
 .embedded .lyrics > .status { grid-row: 2; margin: 0; text-align: center; }
 
 .native-scene .toolbar, .native-scene .fullscreen-controls { display: none; }
+
+/* Fill the physical screen with the scene, preserving its aspect ratio. */
+.native-fullscreen #viewport {
+  width: max(100vw, 177.777778vh) !important;
+  height: max(56.25vw, 100vh) !important;
+}
+.native-fullscreen .scene-label, .native-fullscreen .scene-coordinate,
+.native-fullscreen .fullscreen-controls, .native-fullscreen #toast { display: none !important; }

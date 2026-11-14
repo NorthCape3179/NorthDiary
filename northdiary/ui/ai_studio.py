@@ -28,6 +28,19 @@ MODES = {
              '与已选择的文章展开一场对话', ('文章讨论',)),
 }
 
+MEMORY_MODE = ('AI 记忆引擎', '沿着记录，回顾一段记忆',
+               '跨文章整理人物与事件，生成带原文引用的回忆报告',
+               ('回顾一段时间', '围绕一个问题回顾'))
+
+MEMORY_SHORTCUTS = (
+    ('继续探索', '这段时间发生的事情还有什么值得注意的？请补充之前没展开的细节，并引用原文。'),
+    ('发现遗漏', '这段时间有哪些事件在后续选中的文章里没有再提及？请说明你检查了哪些后续记录。'),
+    ('寻找联系', '前面谈到的事情和较晚的记录有什么联系？请区分原文支持的联系和推测。'),
+    ('重新审视', '关于同一件事，早期记录里的想法和较近记录里的想法有什么区别？请对照原文。'),
+    ('主动回顾', '从这些文章里挑一段容易被忽略的回忆，讲讲当时的情景，并附上原文出处。'),
+)
+
+
 STUDIO_STYLE = '''
 QWidget#studioSidebar, QWidget#studioSources { background: #e9ede7; border-radius: 12px; }
 QWidget#studioCanvas { background: #fffefa; border: 1px solid #e3e5dd; border-radius: 12px; }
@@ -123,6 +136,7 @@ class AIStudio(QWidget):
         self.nav_buttons = {}
         for key, title in [('home', '工作室主页')] + [(k, v[0]) for k, v in MODES.items()]:
             self.add_navigation(nav, key, title)
+        self.add_navigation(nav, 'memory', MEMORY_MODE[0])
         nav.addStretch()
         self.add_navigation(nav, 'library', 'AI 作品库')
         self.add_navigation(nav, 'settings', 'API 设置')
@@ -141,6 +155,7 @@ class AIStudio(QWidget):
         self.tools = {}
         for key, spec in MODES.items():
             self.page_widgets[key] = self.build_tool(key, spec)
+        self.page_widgets['memory'] = self.build_tool('memory', MEMORY_MODE)
         self.page_widgets['library'] = self.build_library()
         self.page_widgets['settings'] = self.build_settings()
         for page in self.page_widgets.values():
@@ -170,6 +185,10 @@ class AIStudio(QWidget):
             card = ModeCard(key, spec[0], spec[2])
             card.clicked.connect(lambda checked=False, mode=key: self.navigate(mode))
             grid.addWidget(card, index // 2, index % 2)
+        memory_card = ModeCard('analysis', MEMORY_MODE[0], MEMORY_MODE[2])
+        memory_card.setMinimumHeight(190)
+        memory_card.clicked.connect(lambda: self.navigate('memory'))
+        grid.addWidget(memory_card, 2, 0, 1, 2)
         layout.addLayout(grid)
         layout.addSpacing(4)
         row = QHBoxLayout()
@@ -191,6 +210,8 @@ class AIStudio(QWidget):
         notice = ('虚构创作会与真实记录明确区分。' if key == 'writing' else
                   '分析将区分原文事实、推测与未知信息。' if key == 'analysis' else
                   '围绕右侧已选文章交流。' if key == 'chat' else '用不同的目光，重新阅读你的文字。')
+        if key == 'memory':
+            notice = '选择范围后生成回忆报告。AI 提出的人物关联须由你逐条确认。'
         layout.addWidget(text(notice, 'muted'))
         conversations = QHBoxLayout()
         conversation = ComboBox()
@@ -210,7 +231,14 @@ class AIStudio(QWidget):
         tone = combo(('自然温和', '细腻抒情', '克制客观', '轻松日常'))
         perspective = combo(('原文视角', '第一人称', '第三人称', '多视角'))
         length = combo(('适中篇幅', '简短', '详细'))
-        for label, widget in [('类型', kind), ('语气', tone), ('视角', perspective), ('篇幅', length)]:
+        fields = [('类型', kind), ('语气', tone), ('视角', perspective), ('篇幅', length)]
+        if key == 'memory':
+            task = QHBoxLayout()
+            task.addWidget(text('回顾方式', 'muted'))
+            task.addWidget(kind, 1)
+            layout.addLayout(task)
+            fields = fields[1:]
+        for label, widget in fields:
             column = QVBoxLayout()
             column.setSpacing(5)
             column.addWidget(text(label, 'muted'))
@@ -245,10 +273,12 @@ class AIStudio(QWidget):
             extras.update(step=step, chapter=chapter, story_settings=story_settings,
                           story_notes={field: '' for field in STORY_FIELDS})
         output = ChatTranscript()
+        if key == 'memory':
+            output.sourceRequested.connect(self.articleRequested.emit)
         layout.addWidget(output, 1)
         actions = QHBoxLayout()
         actions.addWidget(text('对话记录' if key == 'chat' else '生成结果', 'muted'), 1)
-        parameter_toggle = button('创作设置')
+        parameter_toggle = button('报告设置' if key == 'memory' else '创作设置')
         parameter_toggle.setCheckable(True)
         parameter_toggle.setChecked(True)
         parameter_toggle.toggled.connect(parameters.setVisible)
@@ -261,6 +291,10 @@ class AIStudio(QWidget):
         save_work.setToolTip('将最近有内容的回复保存到独立作品库')
         actions.addWidget(edit_work)
         actions.addWidget(save_work)
+        if key == 'memory':
+            review = button('核对关联', lambda: self.runtime.review_memory())
+            actions.addWidget(review)
+            extras['review'] = review
         layout.addLayout(actions)
         status = text('每次发送前可核对文章和历史；同一对话延续上下文。', 'muted')
         layout.addWidget(status)
@@ -270,6 +304,17 @@ class AIStudio(QWidget):
         prompt.setFixedHeight(66)
         prompt.setPlaceholderText('想聊些什么？可以引用已选文章中的一段话…' if key == 'chat' else
                                   '补充你的要求，例如：重点关注情绪变化，保留原文中的细节…')
+        if key == 'memory':
+            prompt.setPlaceholderText('可填写想回顾的人物、时期或问题，例如：我和她有哪些共同经历？')
+            shortcuts = QWidget()
+            row = QHBoxLayout(shortcuts)
+            row.setContentsMargins(0, 0, 0, 0)
+            for label, question in MEMORY_SHORTCUTS:
+                shortcut = button(label, lambda checked=False, value=question: self.fill_memory_question(value))
+                shortcut.setToolTip(question)
+                row.addWidget(shortcut)
+            layout.addWidget(shortcuts)
+            extras['shortcuts'] = shortcuts
         layout.addWidget(prompt)
         footer = QHBoxLayout()
         footer.addWidget(button('查看本次范围', self.preview_request))
@@ -289,6 +334,19 @@ class AIStudio(QWidget):
                            'status': status, 'regenerate': regenerate, 'stop': stop, 'send': send}
         self.tools[key].update(extras)
         return page
+
+    def fill_memory_question(self, question):
+        tool = self.tools['memory']
+        prompt = tool['prompt']
+        draft = prompt.toPlainText()
+        questions = tuple(value for _, value in MEMORY_SHORTCUTS)
+        first, separator, remainder = draft.partition('\n\n')
+        if first in questions:
+            draft = remainder
+        prompt.setPlainText(question + ('\n\n' + draft if draft.strip() else ''))
+        tool['kind'].setCurrentIndex(1)
+        prompt.moveCursor(prompt.textCursor().MoveOperation.End)
+        prompt.setFocus()
 
     def edit_story_settings(self):
         if self.runtime.client.busy or self.runtime.pending_result:
@@ -322,6 +380,10 @@ class AIStudio(QWidget):
     def restore_task_settings(self, mode, instruction, completed=False):
         if mode == 'analysis':
             self.tools[mode]['focus'].setText(instruction_field(instruction, '分析对象'))
+        elif mode == 'memory':
+            kind = instruction_field(instruction, '类型')
+            if kind in MEMORY_MODE[3]:
+                self.tools[mode]['kind'].setCurrentText(kind)
         elif mode == 'writing':
             state = decode_story(instruction)
             self.reset_task_settings(mode)
@@ -464,7 +526,7 @@ class AIStudio(QWidget):
     def choose_articles(self):
         if self.runtime.client.busy or self.runtime.pending_result:
             return
-        dialog = ArticleSelectionDialog(self.database, self.article_ids, self)
+        dialog = ArticleSelectionDialog(self.database, self.article_ids, self, memory=self.current_page == 'memory')
         try:
             if dialog.exec() == dialog.DialogCode.Accepted:
                 # The selector contains metadata only; don't fetch bodies here.
@@ -517,7 +579,7 @@ class AIStudio(QWidget):
         if mode not in self.tools:
             return '尚未选择功能。请进入文字赏析、深度分析、故事创作或自由对话补充指令。'
         tool = self.tools[mode]
-        lines = [f'功能：{MODES[mode][0]}']
+        lines = ['功能：' + (MEMORY_MODE if mode == 'memory' else MODES[mode])[0]]
         lines.extend(f'{label}：{tool[key].currentText()}' for label, key in
                      [('类型', 'kind'), ('语气', 'tone'), ('视角', 'perspective'), ('篇幅', 'length')])
         if mode == 'analysis':

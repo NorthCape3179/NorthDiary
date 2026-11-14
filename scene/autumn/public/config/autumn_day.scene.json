@@ -15,7 +15,7 @@
     {
       "id": "sky",
       "z": 0,
-      "asset": "autumn-background-v2.png"
+      "asset": "autumn-background-v3.png"
     },
     {
       "id": "far_mountains",
@@ -36,7 +36,7 @@
     {
       "id": "reflection",
       "z": 40,
-      "asset": "autumn-background-v2.png"
+      "asset": "autumn-background-v3.png"
     },
     {
       "id": "ripples",
@@ -87,6 +87,11 @@
       "id": "falling_leaves_front",
       "z": 80,
       "dynamic": true
+    },
+    {
+      "id": "wildlife",
+      "z": 44,
+      "dynamic": true
     }
   ],
   "assets": {
@@ -117,7 +122,18 @@
     "foregroundMask": "foreground_mask.svg",
     "canopy": "maple-canopy-v2.png",
     "nearCanopy": "maple-left-short-twig-v6.png",
-    "waterLeafAtlas": "water-maple-atlas-v5.png"
+    "waterLeafAtlas": "water-maple-atlas-v5.png",
+    "waterSurfaces": [
+      "water-layer-0.png",
+      "water-layer-1.png",
+      "water-layer-2.png"
+    ],
+    "wildlife": [
+      "duck-male.png",
+      "duck-female.png",
+      "fish-rise.png",
+      "fish-fall.png"
+    ]
   },
   "water": {
     "polygon": [

@@ -3,17 +3,28 @@ import type { SceneConfig } from '../config/types';
 import { WindField } from './WindField';
 export interface Ripple {active:boolean;x:number;y:number;age:number}
 export class WaterSystem {
-  readonly rings:Ripple[];private graphic=new Graphics();private strips:Sprite[]=[];private subtextures:Texture[]=[];
+  readonly rings:Ripple[];private graphic=new Graphics();private glints=new Graphics();private strips:Sprite[]=[];private subtextures:Texture[]=[];
   private time=0;intensity:number;
-  constructor(private config:SceneConfig,private wind:WindField,reflection:Texture,reflectionLayer:Container,rippleLayer:Container){
+  constructor(private config:SceneConfig,private wind:WindField,reflection:Texture,reflectionLayer:Container,rippleLayer:Container,waterSurfaces:Texture[]=[]){
     this.intensity=config.water.intensity;
     this.rings=Array.from({length:config.water.maxRipples},()=>({active:false,x:0,y:0,age:0}));
     rippleLayer.addChild(this.graphic);
+    reflectionLayer.addChild(this.glints);
+    this.glints.zIndex=1;
+    reflectionLayer.sortableChildren=true;
+    const bands = [146, 174, 220, 270];
+    const planes = bands.slice(0, 3).map((_, index) => {
+      const plane = new Container({label:['远处倒影', '中段水纹', '近处波光'][index]});
+      reflectionLayer.addChild(plane);
+      return plane;
+    });
     // Pixel-row displacement fallback: no whole-scene filter or smooth sampling.
     const scaleX=reflection.width/480,scaleY=reflection.height/270;
     for(let y=146;y<270;y+=2){
-      const t=new Texture({source:reflection.source,frame:new Rectangle(0,y*scaleY,480*scaleX,2*scaleY)});this.subtextures.push(t);
-      const s=new Sprite(t);s.y=y;s.width=480;s.height=2;s.alpha=.85;this.strips.push(s);reflectionLayer.addChild(s);
+      const band=y<174?0:y<220?1:2;
+      const source=waterSurfaces[band]??reflection;
+      const t=new Texture({source:source.source,frame:new Rectangle(0,y*scaleY,480*scaleX,2*scaleY)});this.subtextures.push(t);
+      const s=new Sprite(t);s.y=y;s.width=480;s.height=2;s.alpha=.95;this.strips.push(s);planes[band].addChild(s);
     }
   }
   add(x:number,y:number){const r=this.rings.find(r=>!r.active)??this.rings.reduce((a,b)=>a.age>b.age?a:b);Object.assign(r,{active:true,x,y,age:0});}
@@ -48,7 +59,8 @@ export class WaterSystem {
         }
       }
     }
-    // Sparse short glints move slowly with the same field.
+    // Separate surface highlights from impact rings.
+    this.glints.clear();
     for(let i=0;i<22;i++){
       const phase = t * .55 + i * 2.4;
       const y = 180 + (i * 17) % 82;
@@ -56,7 +68,7 @@ export class WaterSystem {
       const perspective = .12 + .88 * depth * depth;
       const alpha = Math.min(.28, (.04 + .13 * Math.pow((1 + Math.sin(phase)) / 2, 2)) * strength * perspective);
       const x = (i * 73) % 480 + Math.sin(phase * .5) * 4 * perspective;
-      this.graphic.rect(x, y, (3 + (i % 4) * 3) * (.35 + .65 * depth), .65).fill({color:0xc5d7ce,alpha});
+      this.glints.rect(x, y, (3 + (i % 4) * 3) * (.35 + .65 * depth), .65).fill({color:0xc5d7ce,alpha});
     }
   }
   destroy(){for(const t of this.subtextures)t.destroy(false);}

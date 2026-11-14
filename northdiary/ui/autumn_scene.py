@@ -28,14 +28,21 @@ class _Host(QObject):
         if self.scene.active:
             self.scene.lyricsToggled.emit(enabled)
 
+    @Slot(bool)
+    def setSceneFullscreen(self, enabled):
+        if self.scene.active:
+            self.scene.fullscreenRequested.emit(enabled)
+
 
 class AutumnScene(QWidget):
     lyricsToggled = Signal(bool)
+    fullscreenRequested = Signal(bool)
 
     def __init__(self, board, lyrics_button, parent=None):
         super().__init__(parent)
         self.board, self.lyrics_button = board, lyrics_button
         self.active = self.ready = False
+        self.fullscreen = False
         self.view = self.assets = self.profile = None
         self.setMinimumSize(0, 0)
         self.layout = QVBoxLayout(self)
@@ -178,6 +185,7 @@ class AutumnScene(QWidget):
                 'fontSize': b.font_size.value(),
             }
         self.host.message.emit(json.dumps({'type': 'hostState', 'active': self.active,
+                                          'fullscreen': self.fullscreen,
                                           'lyricsEnabled': enabled, 'playback': playback}, ensure_ascii=False))
 
     def download(self, item):

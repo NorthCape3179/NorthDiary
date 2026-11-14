@@ -13,6 +13,7 @@ from lxml import etree, html
 
 from northdiary.models import ExportSelection
 from northdiary.services.exporting import validate_selection
+from northdiary.services.typography import safe_typography, style_string
 from northdiary.services.native_format import (
     FORMAT, FORMAT_VERSION, MAX_MANIFEST, MAX_MEMBER, MAX_TOTAL,
     article_record, image_type, validate_record,
@@ -43,7 +44,7 @@ def _text(element, value):
 
 
 def clean_body(source: str, resolve_image, resolve_image_link=None, preserve_photo_links=False) -> etree._Element:
-    """Rebuild a whitelist tree, strip Qt CSS, preserve basic inline emphasis."""
+    """Rebuild a whitelist tree, preserving portable text and paragraph formatting."""
     source = INVALID_XML.sub('', source)
     document = html.document_fromstring(source or '<p></p>')
     body = etree.Element('body')
@@ -70,6 +71,13 @@ def clean_body(source: str, resolve_image, resolve_image_link=None, preserve_pho
             return
         target = etree.SubElement(parent, tag) if tag in ALLOWED else parent
         if tag in ALLOWED:
+            typography = safe_typography(node)
+            if typography:
+                target.set('style', style_string(typography))
+                # Qt's HTML reader accepts align="justify" but ignores the
+                # equivalent CSS declaration. Carry both portable forms.
+                if 'text-align' in typography and tag in ('p', 'div', 'li', 'td', 'th', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6'):
+                    target.set('align', typography['text-align'])
             identifier = node.get('id') or (node.get('name') if tag == 'a' else None)
             if identifier and identifier not in ids:
                 target.set('id', identifier)
@@ -106,10 +114,16 @@ def clean_body(source: str, resolve_image, resolve_image_link=None, preserve_pho
 
     original = document.find('body')
     if original is not None:
-        _text(body, original.text)
+        # EbookLib rebuilds <body> and discards its attributes. An inner div keeps
+        # document defaults in both the readable chapter and the import path.
+        defaults = safe_typography(original)
+        container = etree.SubElement(body, 'div', style=style_string(defaults)) if defaults else body
+        if 'text-align' in defaults:
+            container.set('align', defaults['text-align'])
+        _text(container, original.text)
         for node in original:
-            copy(node, body)
-            _text(body, node.tail)
+            copy(node, container)
+            _text(container, node.tail)
     for anchor in body.iter('a'):
         href = anchor.get('href', '')
         if href.startswith('#') and unquote(href[1:]) not in ids:

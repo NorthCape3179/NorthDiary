@@ -128,7 +128,7 @@ class StudioTests(unittest.TestCase):
         self.assertIn('事实、推测和未知信息', captured['instruction'])
         self.assertEqual(self.studio.article_ids, (self.first.id,))
 
-    def test_open_original_restores_correct_diary_space_and_keeps_ai_tables(self):
+    def test_open_original_restores_correct_diary_space_and_no_ai_tables(self):
         self.window.set_studio(True)
         self.studio.set_articles([self.second.id])
         self.studio.open_source()
@@ -136,7 +136,7 @@ class StudioTests(unittest.TestCase):
         self.assertTrue(self.window.outside)
         self.assertEqual(self.window.current_id, self.second.id)
         tables = [r[0] for r in self.db.connection.execute("SELECT name FROM sqlite_master WHERE type='table'")]
-        self.assertEqual({name for name in tables if name.startswith('ai_')}, {'ai_conversations', 'ai_turns', 'ai_works', 'ai_work_versions'})
+        self.assertEqual({name for name in tables if name.startswith('ai_')}, {'ai_conversations', 'ai_turns'})
         self.assertTrue(self.studio.api_key.isEnabled())
         self.assertEqual(self.studio.api_key.text(), '')
 
