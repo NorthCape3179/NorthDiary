@@ -69,3 +69,21 @@ class WindowChromeTests(unittest.TestCase):
         self.assertEqual(color('#273b37', button).name(), '#273b37')
         self.window.set_theme(True, 'dark')
         self.assertEqual(color('#273b37', button).name(), '#e3e4e6')
+
+    def test_client_area_calculation_removes_frame_for_both_message_forms(self):
+        import sys
+        if sys.platform != 'win32':
+            self.skipTest('Windows non-client messages')
+        import ctypes
+        from ctypes import wintypes
+        chrome = self.window._northdiary_chrome
+        chrome.manager.register(chrome)
+        rect = wintypes.RECT(10, 20, 700, 500)
+        msg = wintypes.MSG()
+        msg.hWnd = int(self.window.winId())
+        msg.message = 0x83
+        msg.lParam = ctypes.addressof(rect)
+        for value in (0, 1):
+            msg.wParam = value
+            self.assertEqual(chrome.manager.native_filter.nativeEventFilter(None, ctypes.addressof(msg)), (True, 0))
+            self.assertEqual((rect.left, rect.top, rect.right, rect.bottom), (10, 20, 700, 500))

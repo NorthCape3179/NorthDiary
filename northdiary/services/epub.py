@@ -85,6 +85,9 @@ def clean_body(source: str, resolve_image, resolve_image_link=None, preserve_pho
         if tag == 'img':
             target.set('src', resolve_image(node.get('src', '')))
             target.set('alt', node.get('alt', ''))
+            if node.get('width') == '24' and node.get('height') == '24':
+                target.set('width', '24'); target.set('height', '24')
+                target.set('style', 'width:24px; height:24px; vertical-align:middle;')
         if tag == 'a':
             href = node.get('href', '').strip()
             scheme = urlsplit(href).scheme.lower()

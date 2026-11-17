@@ -44,9 +44,12 @@ MEMORY_SHORTCUTS = (
 STUDIO_STYLE = '''
 QWidget#studioSidebar, QWidget#studioSources { background: #e9ede7; border-radius: 12px; }
 QWidget#studioCanvas { background: #fffefa; border: 1px solid #e3e5dd; border-radius: 12px; }
-QPushButton#studioNav { text-align: left; padding: 12px 15px; background: transparent; border: none; }
-QPushButton#studioNav:hover { background: #e0e8db; }
-QPushButton#studioNav:checked { background: #d3e2d2; color: #244d42; font-weight: 600; }
+QPushButton#studioNav { text-align: left; padding: 12px 15px; background: transparent; border: 1px solid transparent; border-radius: 8px; }
+QPushButton#studioNav:hover { background: #e0e8db; border-color: #c5d2c5; }
+QPushButton#studioNav:checked { background: #d3e2d2; border-color: transparent; color: #244d42; font-weight: 600; }
+QPushButton#studioNav:focus { border: 1px solid transparent; padding: 12px 15px; }
+QPushButton#studioNav:pressed { background: #dbe7d8; border-color: transparent; }
+QPushButton#studioNav:enabled:hover { border-color: #7d9b89; }
 QPushButton#studioCard { background: #fffefa; border: 1px solid #dce2d8; border-radius: 12px; text-align: left; }
 QPushButton#studioCard:hover { background: #f0f1eb; border-color: #7d9b89; }
 QLabel#studioHeading { font-size: 27px; font-weight: 600; color: #244d42; }

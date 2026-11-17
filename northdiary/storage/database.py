@@ -3,7 +3,7 @@ from contextlib import closing
 from uuid import uuid4
 from pathlib import Path
 
-SCHEMA_VERSION = 9
+SCHEMA_VERSION = 10
 SCHEMA = '''
 BEGIN IMMEDIATE;
 CREATE TABLE articles (
@@ -229,6 +229,24 @@ class Database:
                     );
                     CREATE INDEX ai_work_origin ON ai_work_versions(origin_turn_id);
                     PRAGMA user_version=9;
+                    COMMIT;''')
+            except Exception:
+                self.connection.rollback()
+                self.connection.close()
+                raise
+        if version < 10:
+            try:
+                if version == 9:
+                    backups = self.root / 'backups'
+                    backups.mkdir(exist_ok=True)
+                    with closing(sqlite3.connect(backups / f'before-v10-{uuid4().hex}.sqlite3')) as snapshot:
+                        self.connection.backup(snapshot)
+                self.connection.executescript('''BEGIN IMMEDIATE;
+                    CREATE TABLE person_media (
+                        person_id TEXT PRIMARY KEY REFERENCES people(id) ON DELETE CASCADE,
+                        avatar TEXT NOT NULL DEFAULT '', photos TEXT NOT NULL DEFAULT '[]'
+                    );
+                    PRAGMA user_version=10;
                     COMMIT;''')
             except Exception:
                 self.connection.rollback()

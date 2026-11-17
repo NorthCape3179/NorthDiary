@@ -8,7 +8,7 @@ from unittest.mock import patch
 import test_ui
 from PySide6.QtCore import QSettings, Qt
 from PySide6.QtGui import QFont, QTextCursor
-from PySide6.QtTest import QSignalSpy
+from PySide6.QtTest import QSignalSpy, QTest
 
 from northdiary.ui.font_catalog import APPROVED, load_approved_fonts
 from northdiary.ui.font_picker import FontPreferences, FontPicker, FontLibraryDialog
@@ -103,6 +103,53 @@ class FontLibraryTests(unittest.TestCase):
 class FontPickerIntegrationTests(unittest.TestCase):
     setUp = test_ui.WindowTests.setUp
     tearDown = test_ui.WindowTests.tearDown
+
+    def test_font_panel_retains_selection_and_nested_font_picker_applies_locally(self):
+        self.window.new_article(); self.window.confirm_article(self.window.current_id)
+        editor = self.window.editor; editor.setPlainText('局部格式保留')
+        cursor = editor.textCursor();cursor.setPosition(1);cursor.setPosition(3, QTextCursor.MoveMode.KeepAnchor)
+        editor.setTextCursor(cursor)
+        bar = self.window.format_toolbar
+        before = editor.toHtml()
+        QTest.mouseClick(bar.font_button, Qt.MouseButton.LeftButton);test_ui.APP.processEvents()
+        self.assertTrue(bar.font_panel.isVisible())
+        self.assertEqual(editor.toHtml(), before)
+        self.assertEqual(editor.textCursor().selectedText(), '部格')
+        QTest.mouseClick(bar.family, Qt.MouseButton.LeftButton);test_ui.APP.processEvents()
+        picker = bar.family
+        index = picker.model().index(picker.findData('LXGW WenKai'), 0)
+        QTest.mouseClick(picker.popup_list.viewport(), Qt.MouseButton.LeftButton,
+                         pos=picker.popup_list.visualRect(index).center())
+        self.assertTrue(bar.font_panel.isVisible())
+        self.assertEqual(editor.textCursor().charFormat().fontFamilies(), ['LXGW WenKai'])
+        bar.size.setValue(20)
+        self.assertEqual(editor.textCursor().charFormat().fontPointSize(), 20)
+        other = QTextCursor(editor.document());other.setPosition(4);other.setPosition(5, QTextCursor.MoveMode.KeepAnchor)
+        self.assertNotEqual(other.charFormat().fontPointSize(), 20)
+        # The font library is a separate window owned by the settings panel.
+        library = FontLibraryDialog(self.window.font_preferences, bar.font_panel)
+        library.show();test_ui.APP.processEvents()
+        QTest.mouseClick(library.search, Qt.MouseButton.LeftButton)
+        self.assertTrue(bar.font_panel.isVisible())
+        library.close();library.deleteLater()
+        bar.font_panel.hide()
+
+    def test_font_panel_toggle_escape_outside_and_readonly_close(self):
+        self.window.new_article();self.window.confirm_article(self.window.current_id)
+        bar = self.window.format_toolbar
+        for expected in (True, False, True):
+            QTest.mouseClick(bar.font_button, Qt.MouseButton.LeftButton)
+            self.assertEqual(bar.font_panel.isVisible(), expected)
+        QTest.keyClick(bar.size, Qt.Key.Key_Escape)
+        self.assertFalse(bar.font_panel.isVisible())
+        self.assertFalse(bar.font_button.isChecked())
+        bar.font_button.click()
+        QTest.mouseClick(self.window.title, Qt.MouseButton.LeftButton)
+        self.assertFalse(bar.font_panel.isVisible())
+        bar.font_button.click()
+        self.window.preview.setChecked(True);self.window.toggle_preview()
+        self.assertFalse(bar.font_panel.isVisible())
+        self.assertFalse(bar.font_button.isEnabled())
 
     def test_new_article_uses_original_font_and_survives_save_reading_and_theme(self):
         self.assertEqual(self.window.default_body_font.family(), 'Microsoft YaHei UI')

@@ -30,3 +30,32 @@ class AttachmentService:
     def list(self, article_id):
         return self.database.connection.execute(
             'SELECT * FROM attachments WHERE article_id=? ORDER BY position,rowid', (article_id,)).fetchall()
+
+    def add_image(self, article_id, source, compress=False):
+        from tempfile import TemporaryDirectory
+        from PySide6.QtCore import Qt
+        from PySide6.QtGui import QImageReader
+        source = Path(source).resolve(strict=True)
+        reader = QImageReader(str(source))
+        reader.setAutoTransform(True)
+        if not reader.canRead():
+            raise ValueError('无法读取这张图片')
+        # Animated images must retain their frames and timing.
+        if not compress or reader.supportsAnimation():
+            return self.add(article_id, source)
+        size = reader.size()
+        if max(size.width(), size.height()) > 2560:
+            size.scale(2560, 2560, Qt.AspectRatioMode.KeepAspectRatio)
+            reader.setScaledSize(size)
+        image = reader.read()
+        if image.isNull():
+            raise ValueError('无法读取这张图片')
+        if max(image.width(), image.height()) > 2560:
+            image = image.scaled(2560, 2560, Qt.AspectRatioMode.KeepAspectRatio, Qt.TransformationMode.SmoothTransformation)
+        suffix, fmt = ('.png', 'PNG') if image.hasAlphaChannel() else ('.jpg', 'JPEG')
+        with TemporaryDirectory(prefix='northdiary-image-') as folder:
+            prepared = Path(folder)/(source.stem + suffix)
+            if not image.save(str(prepared), fmt, 85):
+                raise OSError('图片压缩失败，请重试或选择保留原图')
+            # Avoid making a small, already optimized image larger.
+            return self.add(article_id, prepared if prepared.stat().st_size < source.stat().st_size else source)

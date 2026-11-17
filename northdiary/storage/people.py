@@ -1,6 +1,7 @@
 """Stable person identities, independent of names and aliases in article text."""
 from datetime import date
 import re
+import json
 from uuid import UUID, uuid4
 
 
@@ -9,10 +10,12 @@ FIELDS = ('id', 'name', 'code', 'birth_date', 'met_date', 'met_how', 'pinned', '
 
 def validate_person(person):
     if (not isinstance(person, dict) or not set(FIELDS) <= set(person)
-            or set(person) - set(FIELDS) - {'relationships', 'temporary_relationships'}):
+            or set(person) - set(FIELDS) - {'relationships', 'temporary_relationships', 'avatar', 'photos'}):
         raise ValueError('人物资料字段无效')
     validate_relationships(person.get('relationships', []))
     validate_relationships(person.get('temporary_relationships', []))
+    from northdiary.services.person_media import validate_media
+    validate_media(person)
     if not isinstance(person['id'], str) or str(UUID(person['id'])) != person['id']:
         raise ValueError('人物编号无效')
     for key, limit in (('name', 100), ('code', 100), ('birth_date', 32), ('met_date', 32), ('met_how', 10000)):
@@ -75,6 +78,7 @@ class PeopleRepository:
                 tuple(person[k] for k in FIELDS))
             if 'relationships' in person or 'temporary_relationships' in person:
                 self.write_relationships(person['id'], person.get('relationships', []), person.get('temporary_relationships', []))
+            self.write_media(person)
         return person['id']
 
     def create(self, name, code, **values):
@@ -88,6 +92,11 @@ class PeopleRepository:
         return [r[0] for r in self.db.execute('SELECT name FROM relationship_tags ORDER BY name')]
 
     def with_relationships(self, person):
+        media = self.db.execute('SELECT avatar, photos FROM person_media WHERE person_id=?', (person['id'],)).fetchone()
+        if media:
+            if media['avatar']: person['avatar'] = media['avatar']
+            photos = json.loads(media['photos'])
+            if photos: person['photos'] = photos
         for key, table in [('relationships', 'person_relationship_tags'),
                            ('temporary_relationships', 'person_temporary_relationship_tags')]:
             names = [r[0] for r in self.db.execute(
@@ -95,6 +104,17 @@ class PeopleRepository:
             if names:
                 person[key] = names
         return person
+
+    def write_media(self, person):
+        # Runs inside save/import's transaction so failed edits keep all old data.
+        if 'avatar' not in person and 'photos' not in person:
+            return
+        current = self.db.execute('SELECT avatar, photos FROM person_media WHERE person_id=?', (person['id'],)).fetchone()
+        avatar = person.get('avatar', current['avatar'] if current else '')
+        photos = person.get('photos', json.loads(current['photos']) if current else [])
+        self.db.execute('''INSERT INTO person_media VALUES (?,?,?) ON CONFLICT(person_id)
+            DO UPDATE SET avatar=excluded.avatar, photos=excluded.photos''',
+            (person['id'], avatar, json.dumps(photos, ensure_ascii=False)))
 
     def write_relationships(self, key, normal, temporary):
         # Called inside the caller's transaction, including EPUB import.

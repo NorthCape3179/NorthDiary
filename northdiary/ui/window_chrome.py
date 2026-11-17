@@ -69,7 +69,24 @@ class TitleBar(QWidget):
         self.title.setObjectName('windowCaption')
         self.title.setTextFormat(Qt.TextFormat.PlainText)
         self.title.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents)
-        row.addWidget(self.title, 1)
+        self.header = getattr(window, 'main_header', None) if not dialog else None
+        if self.header is not None:
+            # Move the existing brand and tools into the draggable caption row.
+            # The OS window title remains available to the taskbar and Alt+Tab.
+            self.title.hide()
+            row.addWidget(self.header, 1)
+            self.setFixedHeight(60)
+            # Use the workspace's inset on both sides, so the brand and caption
+            # buttons line up with the panel edges instead of the OS frame.
+            workspace = window.centralWidget()
+            margins = workspace.layout().contentsMargins()
+            row.setContentsMargins(margins.left(), 8, margins.right(), 8)
+            row.setSpacing(10)
+            brand = self.header.findChild(QLabel, 'brand')
+            if brand is not None:
+                brand.setAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignBottom)
+        else:
+            row.addWidget(self.title, 1)
         self.minimize = CaptionButton('minimize', window, self)
         self.maximize = CaptionButton('maximize', window, self)
         self.close_button = CaptionButton('close', window, self)
@@ -79,9 +96,20 @@ class TitleBar(QWidget):
         row.addWidget(self.maximize)
         row.addWidget(self.close_button)
 
+    def paintEvent(self, event):
+        super().paintEvent(event)
+        if self.header is not None:
+            margins = self.layout().contentsMargins()
+            painter = QPainter(self)
+            painter.setPen(QPen(color('#dce2d8', self), 1))
+            painter.drawLine(margins.left(), self.height()-1,
+                             self.width()-margins.right()-1, self.height()-1)
+            painter.end()
+
     def draggable(self, position):
         child = self.childAt(position)
-        return child is None or child is self.title
+        return (child is None or child is self.title or child is self.header
+                or child.objectName() == 'brand')
 
     def mousePressEvent(self, event):
         if event.button() == Qt.MouseButton.LeftButton and self.host.windowHandle():
@@ -172,7 +200,7 @@ class WindowChrome(QObject):
             # QMessageBox/QInputDialog rebuild their own layout during showEvent.
             QTimer.singleShot(0, self.refresh)
         if event.type() in (QEvent.Type.Resize, QEvent.Type.WindowStateChange,
-                            QEvent.Type.WindowTitleChange, QEvent.Type.Show):
+                            QEvent.Type.WindowTitleChange, QEvent.Type.Show, QEvent.Type.PaletteChange):
             self.refresh()
         return False
 
@@ -193,8 +221,8 @@ class NativeFrameFilter(QAbstractNativeEventFilter):
         if chrome is None or not isValid(chrome) or not isValid(chrome.window):
             return False, 0
         window, user = chrome.window, ctypes.windll.user32
-        if msg.message == 0x83 and msg.wParam:  # WM_NCCALCSIZE
-            if window.isMaximized() and not window.isFullScreen():
+        if msg.message == 0x83:  # WM_NCCALCSIZE, with either RECT or NCCALCSIZE_PARAMS
+            if (window.isMaximized() or user.IsZoomed(msg.hWnd)) and not window.isFullScreen():
                 class MonitorInfo(ctypes.Structure):
                     _fields_ = [('size', wintypes.DWORD), ('monitor', wintypes.RECT),
                                 ('work', wintypes.RECT), ('flags', wintypes.DWORD)]
@@ -261,10 +289,30 @@ class ChromeManager(QObject):
                     style |= 0x20000  # MINIMIZEBOX
                 set_style(hwnd, -16, style)
                 user.SetWindowPos(hwnd, None, 0, 0, 0, 0, 0x27)  # FRAMECHANGED, NOMOVE, NOSIZE, NOZORDER
-                margins = (ctypes.c_int*4)(1, 1, 1, 1)
+                # NCCALCSIZE does not remove a frame extended by DWM. Extending
+                # one pixel here leaves a system-colored strip over our title bar.
+                margins = (ctypes.c_int*4)(0, 0, 0, 0)
                 ctypes.windll.dwmapi.DwmExtendFrameIntoClientArea(hwnd, ctypes.byref(margins))
-                corners = ctypes.c_int(2)
-                ctypes.windll.dwmapi.DwmSetWindowAttribute(hwnd, 33, ctypes.byref(corners), 4)
+        if sys.platform == 'win32':
+            self.update_frame_appearance(chrome)
+
+    def update_frame_appearance(self, chrome):
+        import ctypes
+        window = chrome.window
+        hwnd = ctypes.c_void_p(int(window.winId()))
+        state = (hwnd.value, window.isMaximized() or window.isFullScreen(), theme_name(window))
+        if getattr(chrome, '_native_frame_state', None) == state:
+            return
+        chrome._native_frame_state = state
+        # Qt's frameless maximize can fill the work area without WS_MAXIMIZE;
+        # explicitly square the corners instead of relying on DWM's detection.
+        corners = ctypes.c_int(1 if state[1] else 2)
+        border = ctypes.c_uint(0xfffffffe)  # DWMWA_COLOR_NONE
+        dark = ctypes.c_int(theme_name(window) in ('dark', 'wine', 'radio'))
+        dwm = ctypes.windll.dwmapi
+        dwm.DwmSetWindowAttribute(hwnd, 33, ctypes.byref(corners), 4)
+        dwm.DwmSetWindowAttribute(hwnd, 34, ctypes.byref(border), 4)
+        dwm.DwmSetWindowAttribute(hwnd, 20, ctypes.byref(dark), 4)
 
     def eventFilter(self, target, event):
         if event.type() == QEvent.Type.Polish and isinstance(target, QDialog) and not isinstance(target, QFileDialog):
@@ -272,7 +320,7 @@ class ChromeManager(QObject):
                 parent = target.parentWidget()
                 if parent:
                     name = theme_name(parent)
-                    apply_theme(target, bool(parent.property('darkTheme')) or name in ('dark', 'wine'), name)
+                    apply_theme(target, bool(parent.property('darkTheme')) or name in ('dark', 'wine', 'radio'), name)
                 else:
                     apply_theme(target, False)
                 target._northdiary_chrome = WindowChrome(target, self, dialog=True)

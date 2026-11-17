@@ -130,7 +130,7 @@ class WindowTests(unittest.TestCase):
         image = QImage(40, 30, QImage.Format.Format_RGB32)
         image.fill(0xff467954)
         image.save(str(source))
-        with patch('northdiary.ui.main_window.QFileDialog.getOpenFileName', return_value=(str(source), '')):
+        with patch('northdiary.ui.main_window.QFileDialog.getOpenFileName', return_value=(str(source), '')), patch('northdiary.ui.main_window.choose_image_compression', return_value=False):
             self.window.insert_image()
         row = self.window.attachments.list(article_id)[0]
         self.assertNotIn('<img', self.window.editor.toHtml())
@@ -324,7 +324,7 @@ class WindowTests(unittest.TestCase):
         image = QImage(80, 60, QImage.Format.Format_RGB32)
         image.fill(0xff72937e)
         image.save(str(source))
-        with patch('northdiary.ui.main_window.QFileDialog.getOpenFileName', return_value=(str(source), '')):
+        with patch('northdiary.ui.main_window.QFileDialog.getOpenFileName', return_value=(str(source), '')), patch('northdiary.ui.main_window.choose_image_compression', return_value=False):
             self.window.insert_image()
         board = self.window.image_list
         APP.processEvents()
@@ -567,12 +567,16 @@ class WindowTests(unittest.TestCase):
         self.assertEqual(timeline.selected, QDate(2025, 1, 4))
         self.assertEqual(timeline.spacing, timeline.REST_SPACING)
         QTest.mouseMove(timeline, QPoint(144, 35))
-        self.assertEqual(timeline.spacing, timeline.DRAG_SPACING)
-        self.assertEqual(timeline.selected, QDate(2025, 1, 5))
+        QTest.qWait(70)
+        self.assertGreater(timeline.spacing, timeline.DRAG_SPACING)
+        self.assertLess(timeline.spacing, timeline.REST_SPACING)
+        self.assertEqual(timeline.selected, QDate(2025, 1, 4))
         self.assertEqual(spy.count(), 0)
         QTest.mouseRelease(timeline, Qt.MouseButton.LeftButton, pos=QPoint(144, 35))
         self.assertEqual(spy.count(), 1)
-        self.assertEqual(self.window.browse_date, '2025-01-05')
+        self.assertEqual(self.window.browse_date, '2025-01-04')
+        self.assertLess(timeline.spacing, timeline.REST_SPACING)
+        self.assertTrue(timeline.animation.state() == timeline.animation.State.Running)
         for _ in range(20):
             if timeline.spacing == timeline.REST_SPACING:
                 break

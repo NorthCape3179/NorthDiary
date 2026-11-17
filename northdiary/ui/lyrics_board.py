@@ -52,12 +52,21 @@ class LyricsCanvas(QWidget):
 
     def paintEvent(self, event):
         b = self.board
+        if theme_name(self) == 'radio':
+            from northdiary.ui.radio_theme import paint_radio_lyrics
+            painter = QPainter(self)
+            painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+            paint_radio_lyrics(self, painter)
+            return
         painter = QPainter(self)
         painter.setRenderHint(QPainter.RenderHint.Antialiasing)
         tint = color('#315c4d', self)
         white = QColor.fromRgbF(.9 + tint.redF() * .1, .9 + tint.greenF() * .1, .9 + tint.blueF() * .1)
+        if theme_name(self) == 'letter':
+            white = QColor('#4e5b43')
         painter.setFont(QFont(self.font().family(), 8))
-        painter.setPen(QColor(255, 255, 255, 165))
+        painter.setPen(QColor(white.red(), white.green(), white.blue(), 165)
+                       if theme_name(self) == 'letter' else QColor(255, 255, 255, 165))
         known = b.track and b.track.get('position_known', True)
         if known:
             seconds = int(b.position())
@@ -347,6 +356,16 @@ class LyricsBoard(QWidget):
     def paintEvent(self, event):
         painter = QPainter(self)
         painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+        if theme_name(self) == 'letter':
+            painter.setBrush(QColor('#f0e5ca'))
+            painter.setPen(QPen(QColor('#cabb9b'), 1))
+            painter.drawRoundedRect(QRectF(self.rect()).adjusted(.5, .5, -.5, -.5), 6, 6)
+            return
+        if theme_name(self) == 'radio':
+            painter.setBrush(QColor('#0d1d29'))
+            painter.setPen(QPen(QColor('#405b69'), 1))
+            painter.drawRoundedRect(QRectF(self.rect()).adjusted(.5, .5, -.5, -.5), 10, 10)
+            return
         tint = color('#315c4d', self)
         name = theme_name(self)
         dark = name in ('dark', 'wine') if name else self.palette().color(QPalette.ColorRole.Window).lightness() < 128

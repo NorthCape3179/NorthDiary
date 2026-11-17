@@ -314,6 +314,7 @@ class EpubImporter:
                 value['code'] = base + '（导入-' + suffix + '-' + str(count) + '）'
         self.db.execute('INSERT INTO people VALUES (?,?,?,?,?,?,?,?)', tuple(value[k] for k in FIELDS))
         people_repository.write_relationships(value['id'], value.get('relationships', []), value.get('temporary_relationships', []))
+        people_repository.write_media(value)
         return value['id']
 
     def import_file(self, source: Path) -> ImportResult:

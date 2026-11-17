@@ -42,7 +42,7 @@ def run_installation_check(output):
             assert not window.windowIcon().isNull()
             assert not window.paper.source.isNull()
             window.grab().save(str(output.with_suffix('.png')))
-            about=AboutDialog(window);assert 'v1.7.0' in about.windowTitle();about.close()
+            about=AboutDialog(window);assert ('v' + __version__) in about.windowTitle();about.close()
             result.update(window_title=window.windowTitle(),icon=True,background=True,people=True)
             window.close();window.deleteLater();QCoreApplication.processEvents()
         finally:

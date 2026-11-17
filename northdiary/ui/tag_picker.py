@@ -57,7 +57,7 @@ class TagPicker(QWidget):
         self.refresh_theme()
 
     def refresh_theme(self):
-        dark = theme_name(self) in ('dark', 'wine') if theme_name(self) else self.palette().color(QPalette.ColorRole.Window).lightness() < 128
+        dark = theme_name(self) in ('dark', 'wine', 'radio') if theme_name(self) else self.palette().color(QPalette.ColorRole.Window).lightness() < 128
         for widget in [self, *self.findChildren(QWidget)]:
             style_local(widget, dark)
         self.update()
@@ -92,7 +92,7 @@ class TagPicker(QWidget):
             dialog.setOkButtonText('添加'); dialog.setCancelButtonText('取消')
             dialog.resize(400, 180)
             name_theme = theme_name(self)
-            dark = theme_name(self) in ('dark', 'wine') if theme_name(self) else self.palette().color(QPalette.ColorRole.Window).lightness() < 128
+            dark = theme_name(self) in ('dark', 'wine', 'radio') if theme_name(self) else self.palette().color(QPalette.ColorRole.Window).lightness() < 128
             apply_theme(dialog, dark, name_theme)
             ok = dialog.exec() == QInputDialog.DialogCode.Accepted
             name = dialog.textValue()

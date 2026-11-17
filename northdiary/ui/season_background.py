@@ -51,6 +51,17 @@ class SeasonPaper(QWidget):
 
     def paintEvent(self, event):
         super().paintEvent(event)
+        from northdiary.ui.theme import theme_name
+        if theme_name(self) == 'letter':
+            from northdiary.ui.letter_theme import paint_letter_paper
+            painter = QPainter(self)
+            paint_letter_paper(self, painter)
+            return
+        if theme_name(self) == 'radio':
+            from northdiary.ui.radio_theme import paint_radio_paper
+            painter = QPainter(self)
+            paint_radio_paper(self, painter)
+            return
         if not self.enabled or self.source.isNull():
             return
         dark = self.palette().color(QPalette.ColorRole.Window).lightness() < 128

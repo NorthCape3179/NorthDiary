@@ -2,6 +2,52 @@ from PySide6.QtCore import Qt
 from PySide6.QtGui import QIcon, QPixmap, QPainter, QPainterPath, QPen, QColor
 
 
+def ui_icon(kind, widget):
+    """Compact line icons, using the same theme tint and logical grid."""
+    from northdiary.ui.theme import color
+    ratio = widget.devicePixelRatioF()
+    pixmap = QPixmap(round(24 * ratio), round(24 * ratio))
+    pixmap.setDevicePixelRatio(ratio)
+    pixmap.fill(Qt.GlobalColor.transparent)
+    p = QPainter(pixmap)
+    p.setRenderHint(QPainter.RenderHint.Antialiasing)
+    p.setPen(QPen(color('#526959', widget), 1.6, Qt.PenStyle.SolidLine,
+                  Qt.PenCapStyle.RoundCap, Qt.PenJoinStyle.RoundJoin))
+    p.setBrush(Qt.BrushStyle.NoBrush)
+    if kind == 'image':
+        p.drawRoundedRect(3, 4, 18, 16, 2, 2)
+        p.drawEllipse(14, 7, 3, 3)
+        p.drawLine(4, 18, 9, 12); p.drawLine(9, 12, 14, 17); p.drawLine(14, 17, 18, 13)
+    elif kind in ('align', 'indent'):
+        for y, end in ((5, 20), (10, 16), (15, 20), (20, 16)):
+            p.drawLine(9 if kind == 'indent' and y in (10, 15) else 4, y, end, y)
+        if kind == 'indent':
+            p.drawLine(3, 10, 6, 12); p.drawLine(6, 12, 3, 14)
+    elif kind == 'save':
+        p.drawRoundedRect(4, 3, 16, 18, 2, 2)
+        p.drawRect(8, 3, 8, 6); p.drawRect(8, 14, 8, 7)
+    elif kind == 'random':
+        path = QPainterPath(); path.moveTo(3, 6); path.cubicTo(11, 6, 13, 18, 21, 18)
+        p.drawPath(path)
+        path = QPainterPath(); path.moveTo(3, 18); path.cubicTo(11, 18, 13, 6, 21, 6)
+        p.drawPath(path)
+        for y in (6, 18):
+            p.drawLine(18, y-3, 21, y); p.drawLine(21, y, 18, y+3)
+    elif kind == 'theme':
+        p.drawEllipse(4, 4, 16, 16)
+        p.setBrush(color('#526959', widget)); p.drawPie(4, 4, 16, 16, 90*16, 180*16)
+    elif kind == 'settings':
+        for x, y in ((6, 8), (12, 16), (18, 10)):
+            p.drawLine(x, 3, x, y-3); p.drawLine(x, y+3, x, 21)
+            p.drawRoundedRect(x-2, y-3, 4, 6, 1, 1)
+    elif kind == 'lyrics':
+        for y in (5, 10, 15): p.drawLine(3, y, 12, y)
+        p.drawLine(18, 6, 18, 18); p.drawLine(18, 6, 22, 5)
+        p.drawEllipse(14, 17, 4, 3)
+    p.end()
+    return QIcon(pixmap)
+
+
 def pin_icon(pinned=False, dark=False, ratio=1.0, theme=None):
     """Draw in logical coordinates, rasterize at the current screen pixel ratio."""
     pixmap = QPixmap(round(24*ratio), round(24*ratio))

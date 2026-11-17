@@ -1,11 +1,29 @@
 """Selection formatting and explicitly separate defaults for new diary entries."""
-from PySide6.QtCore import Qt
+from PySide6.QtCore import Qt, QSize, QPoint, QEvent
 from PySide6.QtGui import QFont, QTextCharFormat, QActionGroup, QKeySequence, QShortcut
 from PySide6.QtWidgets import (
     QWidget, QHBoxLayout, QVBoxLayout, QDoubleSpinBox, QToolButton,
-    QMenu, QDialog, QLabel, QDialogButtonBox, QFormLayout,
+    QMenu, QDialog, QLabel, QDialogButtonBox, QFormLayout, QPushButton,
 )
 from northdiary.ui.font_picker import FontPicker
+from northdiary.ui.icons import ui_icon
+from northdiary.ui.controls import FloatingPanel
+from northdiary.ui.theme import themed_css, theme_name
+
+
+class TypographyPanel(FloatingPanel):
+    def eventFilter(self, target, event):
+        # FontPicker owns another floating list and a modal font library. Those
+        # remain part of this panel even when they extend beyond its rectangle.
+        if event.type() in (QEvent.Type.MouseButtonPress, QEvent.Type.KeyPress) and isinstance(target, QWidget):
+            owner = target
+            while owner is not None:
+                if owner is self:
+                    if target.window() is not self:
+                        return False
+                    break
+                owner = owner.parentWidget()
+        return super().eventFilter(target, event)
 
 
 def font_fields(font, parent=None, preferences=None):
@@ -78,9 +96,27 @@ class EditorToolbar(QWidget):
         row = QHBoxLayout(self)
         row.setContentsMargins(0, 0, 0, 0)
         row.setSpacing(4)
-        self.family, self.size = font_fields(editor.document().defaultFont(), self, preferences)
-        row.addWidget(self.family, 1)
-        row.addWidget(self.size)
+        self.font_button = self.tool('A', '字体与字号', self.toggle_font_panel)
+        self.font_button.setCheckable(True)
+        self.font_button.setStyleSheet('font-size: 18px;')
+        row.addWidget(self.font_button)
+        self.font_panel = TypographyPanel(self.font_button)
+        self.font_panel.setObjectName('typographyPanel')
+        panel_layout = QVBoxLayout(self.font_panel)
+        panel_layout.setContentsMargins(12, 12, 12, 12)
+        panel_layout.setSpacing(10)
+        form = QFormLayout()
+        form.setSpacing(10)
+        self.family, self.size = font_fields(editor.document().defaultFont(), self.font_panel, preferences)
+        self.family.setMinimumWidth(168)
+        form.addRow('字体', self.family)
+        form.addRow('字号', self.size)
+        panel_layout.addLayout(form)
+        self.defaults = QPushButton('默认排版…', self.font_panel)
+        self.defaults.setToolTip('设置新文章的默认字体与字号')
+        self.defaults.clicked.connect(lambda: self.open_defaults(defaults_callback))
+        panel_layout.addWidget(self.defaults)
+        self.font_panel.installEventFilter(self)
         self.family.currentFontChanged.connect(self.change_family)
         self.size.valueChanged.connect(self.change_size)
         self.bold = self.tool('B', '加粗  Ctrl+B', lambda: self.emphasis('bold'))
@@ -91,8 +127,9 @@ class EditorToolbar(QWidget):
             button.setCheckable(True)
             button.setStyleSheet(css)
             row.addWidget(button)
-        self.alignment = self.tool('对齐', '当前或选中的段落对齐')
-        self.alignment.setFixedWidth(66)
+        self.alignment = self.tool('', '段落对齐')
+        self.alignment.setIconSize(QSize(18, 18))
+        self.alignment.setIcon(ui_icon('align', self))
         self.alignment.setCheckable(True)
         self.alignment.setPopupMode(QToolButton.ToolButtonPopupMode.InstantPopup)
         self.align_menu = QMenu(self.alignment)
@@ -108,8 +145,6 @@ class EditorToolbar(QWidget):
         self.alignment.setMenu(self.align_menu)
         row.addWidget(self.alignment)
         row.addStretch()
-        self.defaults = self.tool('Aa', '默认排版：设置新文章的字体与字号', defaults_callback)
-        row.addWidget(self.defaults)
         for key, attribute in [('Ctrl+B', 'bold'), ('Ctrl+I', 'italic'), ('Ctrl+U', 'underline')]:
             shortcut = QShortcut(QKeySequence(key), editor)
             shortcut.setContext(Qt.ShortcutContext.WidgetWithChildrenShortcut)
@@ -118,6 +153,43 @@ class EditorToolbar(QWidget):
         editor.cursorPositionChanged.connect(self.sync_alignment)
         self.sync_format(editor.currentCharFormat())
         self.sync_alignment()
+
+    def refresh_icons(self):
+        self.alignment.setIcon(ui_icon('align', self))
+
+    def toggle_font_panel(self):
+        if self.font_panel.isVisible():
+            self.font_panel.hide()
+            return
+        if self.editor.isReadOnly() or not self.font_button.isEnabled():
+            self.font_button.setChecked(False)
+            return
+        self.sync_format(self.editor.currentCharFormat())
+        name = theme_name(self)
+        self.font_panel.setProperty('colorTheme', name)
+        self.font_panel.setPalette(self.palette())
+        self.font_panel.setStyleSheet(themed_css('QFrame#typographyPanel { background: #fffefa; border: 1px solid #d6dfd1; border-radius: 8px; }', name in ('dark', 'wine'), name))
+        self.font_panel.adjustSize()
+        screen = self.font_button.screen().availableGeometry()
+        point = self.font_button.mapToGlobal(QPoint(0, self.font_button.height()+4))
+        if point.y()+self.font_panel.height() > screen.bottom()+1:
+            point.setY(self.font_button.mapToGlobal(QPoint(0, -self.font_panel.height()-4)).y())
+        self.font_panel.move(max(screen.left(), min(point.x(), screen.right()-self.font_panel.width()+1)),
+                             max(screen.top(), min(point.y(), screen.bottom()-self.font_panel.height()+1)))
+        self.font_panel.show()
+        self.font_panel.raise_()
+        self.font_panel.activateWindow()
+        self.font_button.setChecked(True)
+
+    def open_defaults(self, callback):
+        self.font_panel.hide()
+        callback()
+
+    def eventFilter(self, target, event):
+        if target is self.font_panel and event.type() == QEvent.Type.Hide:
+            self.family.hidePopup()
+            self.font_button.setChecked(False)
+        return super().eventFilter(target, event)
 
     def tool(self, text, tip, callback=None):
         button = QToolButton(self)
@@ -137,7 +209,8 @@ class EditorToolbar(QWidget):
         # QTextEdit merges only the selection (or the subsequent input format),
         # never implicitly expands an empty selection to the current word.
         self.editor.mergeCurrentCharFormat(fmt)
-        self.editor.setFocus()
+        if not self.font_panel.isVisible():
+            self.editor.setFocus()
 
     def change_family(self, font):
         fmt = QTextCharFormat()
@@ -189,5 +262,7 @@ class EditorToolbar(QWidget):
         self.underline.setChecked(fmt.fontUnderline())
 
     def set_editable(self, editable):
-        for widget in (self.family, self.size, self.bold, self.italic, self.underline, self.alignment):
+        for widget in (self.font_button, self.family, self.size, self.bold, self.italic, self.underline, self.alignment):
             widget.setEnabled(editable)
+        if not editable:
+            self.font_panel.hide()

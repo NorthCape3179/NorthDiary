@@ -82,7 +82,7 @@ td {{padding:12px;vertical-align:top;}}
 <li>普通与临时关系标签用不同颜色区分；普通关系可复用，临时关系仅当前人物使用。</li>
 <li>文章可关联多个人物，人物详情显示相关文章；修改姓名或代号不破坏已有编号关联。</li>
 <li>人物代号快捷插入正文；插入代号文字不会自动添加人物标签。</li>
-</ul><p class="muted">人物当前使用默认剪影头像，暂不支持自定义头像照片。</p>
+</ul><p class="muted">人物支持自定义图片头像、档案底部照片栏，以及正文中的小圆形头像引用。</p>
 <h3>图文、导出与数据</h3><ul>
 <li>正文图片入口、图注、照片板与附件托管；图片复制到本地后不依赖原文件位置。</li>
 <li>EPUB 电子书导出支持文章选择、章节排序、目录与正文引用图片。</li>
@@ -102,6 +102,7 @@ td {{padding:12px;vertical-align:top;}}
 </ul>
 
 <a name="changes"></a><h2>更新日志</h2>
+<h3>v1.8.2 · 人物照片与主题体验</h3><ul><li>新增人物头像、照片管理和正文圆形头像引用，支持 EPUB 交换。</li><li>新增图片保留原图或自动压缩选项，优化照片板与阅读显示。</li><li>新增午夜电台与纸间来信主题，优化日期浏览、字体和滚动体验。</li><li>数据库升级至 schema v10，升级前自动保存快照。</li></ul>
 <h3>v1.8.1 · 排版与回顾</h3><ul>
 <li>新增字体、字号、段落对齐及默认排版，EPUB 导出保留可移植格式。</li>
 <li>导出列表增加搜索、全选、反选与选择统计。</li>
@@ -206,7 +207,7 @@ class AboutDialog(QDialog):
         self.resize(780, 760)
         self.setMinimumSize(600, 480)
         name = theme_name(parent) if parent else 'light'
-        dark = name in ('dark', 'wine')
+        dark = name in ('dark', 'wine', 'radio')
         mapping = theme_mapping(dark, name)
         layout = QVBoxLayout(self)
         layout.setContentsMargins(24, 20, 24, 16)

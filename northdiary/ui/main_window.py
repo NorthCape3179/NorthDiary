@@ -18,13 +18,16 @@ from northdiary.ui.editor import ArticleEditor
 from northdiary.ui.theme import STYLE, apply_theme
 from northdiary.ui.image_viewer import ImageViewer, read_image
 from northdiary.ui.timeline import Timeline
+from northdiary.ui.radio_theme import RadioStation
+from northdiary.ui.letter_theme import LetterFooter
 from northdiary.ui.tag_picker import TagPicker
 from northdiary.ui.article_list import ArticleList
 from northdiary.ui.controls import ComboBox as QComboBox, ButtonFeedback, FloatingPanel
 from northdiary.ui.trash_dialog import TrashDialog
-from northdiary.ui.icons import pin_icon, landscape_icon, date_sort_icon
+from northdiary.ui.icons import pin_icon, landscape_icon, date_sort_icon, ui_icon
 from northdiary.ui.season_background import SeasonPaper
 from northdiary.ui.image_board import ImageBoard
+from northdiary.ui.image_import_dialog import choose_image_compression
 from northdiary.ui.category_picker import CategoryPicker
 from northdiary.ui.overview_dialog import OverviewDialog
 from northdiary.ui.date_picker import DateInput, matches_day
@@ -64,7 +67,7 @@ class MainWindow(QMainWindow):
         self.browse_date = None
         self.list_mode = 'all'
         self.sort_key = 'diary_desc'
-        self.setWindowTitle(f'NorthDiary v{__version__} · 留下值得记住的日常')
+        self.setWindowTitle('NorthDiary · 留下值得记住的日常')
         self.resize(1280, 820)
         self.setMinimumSize(1000, 640)
         self.setStyleSheet(STYLE)
@@ -112,6 +115,7 @@ class MainWindow(QMainWindow):
         return widget
 
     def build_ui(self):
+        self.compact_icons = []
         frame = QWidget()
         outer = QVBoxLayout(frame)
         outer.setContentsMargins(20, 16, 20, 8)
@@ -154,29 +158,50 @@ class MainWindow(QMainWindow):
         self.lyrics_button.clicked.connect(self.toggle_lyrics)
         self.lyrics_button.toggled.connect(self.update_lyrics_icon)
         self.lyrics_button.toggled.connect(scene_lyrics.setChecked)
-        self.lyrics_options_button = QToolButton()
-        self.lyrics_options_button.setObjectName('articleTool')
-        self.lyrics_options_button.setFixedSize(90, 30)
-        self.lyrics_options_button.setText("歌词设置 ▾")
-        self.lyrics_options_button.setAccessibleName('歌词设置')
-        self.lyrics_options_button.setToolTip('歌词设置')
-        self.lyrics_options_button.clicked.connect(self.toggle_lyrics_options)
+        self.lyrics_options_button = self.compact_button('lyrics', '歌词设置', self.toggle_lyrics_options)
         self.header_tools.add_widget(self.lyrics_options_button)
         self.lyrics_options = None
         self.theme_mode_button = self.button('切换深色', lambda: self.set_theme(not bool(self.property('darkTheme'))))
         self.theme_mode_button.setFixedWidth(96)
         self.theme_mode_button.setAccessibleName('切换深浅主题')
-        self.header_tools.add_widget(self.theme_mode_button)
+        self.theme_mode_button.hide()
         self.theme_combo = QComboBox()
         self.theme_combo.setFixedWidth(136)
         self.theme_combo.setAccessibleName('主题配色')
         self.theme_combo.setToolTip('选择当前深浅模式下的配色')
         self.theme_combo.currentIndexChanged.connect(lambda _: self.choose_theme(self.theme_combo))
-        self.header_tools.add_widget(self.theme_combo)
-        self.header_tools.add_widget(self.button('数据文件夹', self.manage_data_location))
-        self.random_memory_button = self.button('随机回忆', self.open_random_memory)
+        self.theme_combo.hide()
+        self.theme_button = self.compact_button('theme', '外观与主题')
+        self.theme_menu = QMenu(self.theme_button)
+        self.theme_mode_action = self.theme_menu.addAction('切换深浅模式', lambda: self.set_theme(not bool(self.property('darkTheme'))))
+        self.theme_menu.addSeparator()
+        from PySide6.QtGui import QActionGroup
+        self.theme_group = QActionGroup(self)
+        self.theme_actions = {}
+        for title, key in [('鼠尾草绿白', 'light'), ('浅咖米白', 'cream'), ('酒红米白', 'burgundy'),
+                           ('橙绿米白', 'citrus'), ('蓝与纯白', 'blue'), ('灰与浅灰', 'gray'),
+                           ('灰黑夜色', 'dark'), ('黑红夜色', 'wine'), ('午夜电台', 'radio'), ('纸间来信', 'letter')]:
+            action = self.theme_menu.addAction(title)
+            action.setCheckable(True)
+            self.theme_group.addAction(action)
+            action.triggered.connect(lambda checked=False, value=key: self.set_theme(value in ('dark', 'wine', 'radio'), value))
+            self.theme_actions[key] = action
+        self.theme_button.setMenu(self.theme_menu)
+        self.theme_button.setPopupMode(QToolButton.ToolButtonPopupMode.InstantPopup)
+        self.header_tools.add_widget(self.theme_button)
+        self.settings_button = self.compact_button('settings', '设置')
+        settings_menu = QMenu(self.settings_button)
+        settings_menu.addAction('数据文件夹…', self.manage_data_location)
+        self.settings_button.setMenu(settings_menu)
+        self.settings_button.setPopupMode(QToolButton.ToolButtonPopupMode.InstantPopup)
+        self.header_tools.add_widget(self.settings_button)
+        self.random_memory_button = self.compact_button('random', '随机回忆', self.open_random_memory)
         self.header_tools.add_widget(self.random_memory_button)
-        self.diary_save_button = self.button('保存  Ctrl+S', lambda: self.save(True))
+        self.save_state = label('已保存')
+        self.save_state.setToolTip('自动保存状态')
+        self.header_tools.add_widget(self.save_state)
+        self.diary_save_button = self.compact_button('save', '保存  Ctrl+S', lambda: self.save(True))
+        self.diary_save_button.setProperty('buttonTone', 'accent')
         self.header_tools.add_widget(self.diary_save_button)
         header.addWidget(self.header_tools)
         self.about_button = AboutButton()
@@ -281,6 +306,9 @@ class MainWindow(QMainWindow):
         self.trash_button = self.button('回收站', self.open_trash)
         left.addWidget(self.trash_button)
         self.search.textChanged.connect(self.filter_search)
+        self.radio_station = RadioStation(sidebar)
+        left.addWidget(self.radio_station)
+        self.radio_station.hide()
         self.splitter.addWidget(sidebar)
 
         paper = SeasonPaper()
@@ -289,6 +317,7 @@ class MainWindow(QMainWindow):
         center = QVBoxLayout(paper)
         self.center_layout = center
         center.setContentsMargins(30, 12, 30, 20)
+        center.setSpacing(6)
         tool_band = QWidget()
         band_layout = QVBoxLayout(tool_band)
         band_layout.setContentsMargins(0, 0, 0, 0)
@@ -340,7 +369,7 @@ class MainWindow(QMainWindow):
         self.date.dateChanged.connect(lambda date: self.timeline.setDate(date) if not self.loading or not self.browse_date else None)
         self.timeline_preview_timer = QTimer(self)
         self.timeline_preview_timer.setSingleShot(True)
-        self.timeline_preview_timer.setInterval(90)
+        self.timeline_preview_timer.setInterval(150)
         self.timeline_preview_timer.timeout.connect(self.apply_timeline_preview)
         self.pending_timeline_date = None
         self.timeline.dateSelected.connect(self.commit_timeline_day)
@@ -350,6 +379,7 @@ class MainWindow(QMainWindow):
         row.addWidget(self.date_scope_button)
         self.preview = self.button('阅读模式', self.toggle_preview)
         self.preview.setCheckable(True)
+        self.preview.setProperty('buttonTone', 'accent')
         row.addWidget(self.preview)
         center.addLayout(row)
         self.title = QLineEdit()
@@ -363,14 +393,11 @@ class MainWindow(QMainWindow):
         self.underline = self.format_toolbar.underline
         self.center_button = self.format_toolbar.alignment
         center.addWidget(self.format_toolbar)
-        toolbar = QHBoxLayout()
-        self.indent_button = self.button('自动缩进', self.editor_indent)
-        self.indent_button.setToolTip('将全文各段首行缩进两个汉字，重复点击不叠加')
-        self.image_button = self.button('插入图片', self.insert_image)
-        toolbar.addWidget(self.indent_button)
-        toolbar.addWidget(self.image_button)
-        toolbar.addStretch()
-        center.addLayout(toolbar)
+        self.indent_button = self.compact_button('indent', '自动缩进：各段首行缩进两个汉字', self.editor_indent)
+        self.image_button = self.compact_button('image', '插入图片', self.insert_image)
+        toolbar = self.format_toolbar.layout()
+        toolbar.insertWidget(toolbar.count()-1, self.indent_button)
+        toolbar.insertWidget(toolbar.count()-1, self.image_button)
         self.editor.setObjectName('articleEditor')
         self.editor.setStyleSheet('QTextEdit#articleEditor { background: transparent; }')
         self.editor.viewport().setAutoFillBackground(False)
@@ -382,6 +409,9 @@ class MainWindow(QMainWindow):
         center.addWidget(self.editor, 1)
         self.word_count = label('0 字符')
         center.addWidget(self.word_count)
+        self.letter_footer = LetterFooter(paper)
+        center.addWidget(self.letter_footer)
+        self.letter_footer.hide()
         self.splitter.addWidget(paper)
 
         properties = QWidget()
@@ -401,18 +431,25 @@ class MainWindow(QMainWindow):
         self.people_expand = QToolButton()
         self.people_expand.setArrowType(Qt.ArrowType.RightArrow)
         self.people_expand.setCheckable(True)
-        self.people_expand.setAccessibleName('展开人物代号快捷插入')
+        self.people_expand.setAccessibleName('展开人物引用（代号或头像）')
+        self.people_expand.setToolTip('展开人物引用：可插入代号或小圆形头像')
         self.people_expand.toggled.connect(self.toggle_people_shortcuts)
         people_row.addWidget(self.people_expand)
         right.addLayout(people_row)
         self.timestamps = label('尚未选择文章')
         self.timestamps.setTextFormat(Qt.TextFormat.PlainText)
         right.addWidget(self.timestamps)
-        right.addSpacing(18)
+        right.addSpacing(6)
         self.photo_panel = QWidget()
+        self.photo_panel.setObjectName('photoPanel')
         self.photo_layout = QVBoxLayout(self.photo_panel)
         self.photo_layout.setContentsMargins(0, 0, 0, 0)
+        self.photo_layout.setSpacing(2)
+        self.photo_layout.setAlignment(Qt.AlignmentFlag.AlignTop)
         self.photo_title = label('文章图片', 'section')
+        self.photo_title.setWordWrap(False)
+        self.photo_title.setFixedHeight(20)
+        self.photo_title.setAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignBottom)
         self.photo_layout.addWidget(self.photo_title)
         right.addWidget(self.photo_panel)
         self.reading_nav = QWidget()
@@ -478,6 +515,7 @@ class MainWindow(QMainWindow):
         right.addWidget(label('文集工具', 'section'))
         from northdiary.ui.controls import MenuButton
         self.export_button = MenuButton('导出')
+        self.export_button.setProperty('buttonTone', 'accent')
         export_menu = QMenu(self.export_button)
         export_menu.addAction('导出备份', self.backup)
         export_menu.addAction('导出 EPUB', self.export_epub)
@@ -487,6 +525,7 @@ class MainWindow(QMainWindow):
         self.export_button.open_upwards = True
         right.addWidget(self.export_button)
         self.delete_button = self.button('移入回收站', self.delete_or_restore)
+        self.delete_button.setProperty('buttonTone', 'danger')
         right.addWidget(self.delete_button)
         property_scroll = QScrollArea()
         property_scroll.setWidgetResizable(True)
@@ -500,7 +539,15 @@ class MainWindow(QMainWindow):
         self.people_shortcuts.setMaximumWidth(380)
         self.shortcut_body = QWidget()
         from PySide6.QtWidgets import QGridLayout
-        self.shortcut_grid = QGridLayout(self.shortcut_body)
+        shortcut_layout = QVBoxLayout(self.shortcut_body)
+        shortcut_layout.addWidget(label('人物引用'))
+        self.person_reference_mode = QComboBox()
+        self.person_reference_mode.addItems(['引用代号', '引用头像'])
+        self.person_reference_mode.setAccessibleName('人物引用方式')
+        self.person_reference_mode.setToolTip('引用头像会在光标处插入 24 像素的小圆形头像')
+        shortcut_layout.addWidget(self.person_reference_mode)
+        self.shortcut_grid = QGridLayout()
+        shortcut_layout.addLayout(self.shortcut_grid, 1)
         self.shortcut_grid.setAlignment(Qt.AlignmentFlag.AlignTop)
         self.people_shortcuts.setWidget(self.shortcut_body)
         self.splitter.addWidget(self.people_shortcuts)
@@ -540,6 +587,21 @@ class MainWindow(QMainWindow):
         self.autumn_scene.fullscreenRequested.connect(self.set_scene_fullscreen)
         self.workspace_stack.addWidget(self.autumn_scene)
 
+    def compact_button(self, icon, tip, callback=None):
+        button = QToolButton(self)
+        button.setObjectName('articleTool')
+        button.setFixedSize(30, 30)
+        button.setIconSize(QSize(20, 20))
+        button.setToolButtonStyle(Qt.ToolButtonStyle.ToolButtonIconOnly)
+        button.setFocusPolicy(Qt.FocusPolicy.NoFocus)
+        button.setToolTip(tip)
+        button.setAccessibleName(tip)
+        button.setIcon(ui_icon(icon, self))
+        self.compact_icons.append((button, icon))
+        if callback:
+            button.clicked.connect(callback)
+        return button
+
     def toggle_studio(self):
         self.set_studio(self.workspace_stack.currentWidget() is not self.ai_studio)
 
@@ -575,6 +637,7 @@ class MainWindow(QMainWindow):
         self.scene_controls.setVisible(scene)
         self.space_button.setVisible(diary)
         self.diary_save_button.setVisible(diary)
+        self.save_state.setVisible(diary)
         self.random_memory_button.setVisible(diary and not self.outside)
         self.lyrics_button.setVisible(diary)
         self.lyrics_options_button.setVisible(not studio)
@@ -683,18 +746,27 @@ class MainWindow(QMainWindow):
     def choose_theme(self, combo):
         name = combo.currentData()
         if name:
-            self.set_theme(name in ('dark', 'wine'), name)
+            self.set_theme(name in ('dark', 'wine', 'radio'), name)
 
     def set_theme(self, dark, name=None):
         if not name:
             name = self.ui_settings.value('last_dark_theme' if dark else 'last_light_theme', 'dark' if dark else 'light')
-        if name not in ('light', 'dark', 'cream', 'wine', 'burgundy', 'citrus', 'blue', 'gray'):
+        if name not in ('light', 'dark', 'cream', 'wine', 'burgundy', 'citrus', 'blue', 'gray', 'radio', 'letter'):
             name = 'dark' if dark else 'light'
-        dark = name in ('dark', 'wine')
+        dark = name in ('dark', 'wine', 'radio')
         apply_theme(self, dark, name)
-        choices = ([('灰黑夜色', 'dark'), ('黑红夜色', 'wine')] if dark else
+        self.timeline.set_radio(name == 'radio')
+        self.radio_station.setVisible(name == 'radio')
+        self.letter_footer.setVisible(name == 'letter')
+        for button, icon in self.compact_icons:
+            button.setIcon(ui_icon(icon, self))
+        self.format_toolbar.refresh_icons()
+        self.editor.refresh_link_colors()
+        self.theme_actions[name].setChecked(True)
+        self.theme_mode_action.setText('切换浅色模式' if dark else '切换深色模式')
+        choices = ([('灰黑夜色', 'dark'), ('黑红夜色', 'wine'), ('午夜电台', 'radio')] if dark else
                    [('鼠尾草绿白', 'light'), ('浅咖米白', 'cream'), ('酒红米白', 'burgundy'),
-                    ('橙绿米白', 'citrus'), ('蓝与纯白', 'blue'), ('灰与浅灰', 'gray')])
+                    ('橙绿米白', 'citrus'), ('蓝与纯白', 'blue'), ('灰与浅灰', 'gray'), ('纸间来信', 'letter')])
         self.theme_combo.blockSignals(True)
         self.theme_combo.clear()
         for title, key in choices:
@@ -794,6 +866,7 @@ class MainWindow(QMainWindow):
         if self.loading or not self.current_id or self.trash:
             return
         self.dirty = True
+        self.save_state.setText('待保存')
         self.word_count.setText(f'{len(self.editor.toPlainText())} 字符')
         self.timer.start()
         self.update_image_actions()
@@ -803,16 +876,19 @@ class MainWindow(QMainWindow):
         if not self.dirty or not self.current_id:
             return True
         try:
+            self.save_state.setText('正在保存')
             split = lambda text: text.replace('，', ',').split(',')
             self.repository.save(self.current_id, self.title.text(), self.date.text(),
                                  self.editor.toHtml(), self.editor.toPlainText(),
                                  split(self.categories.text()), self.tags.normal_names, self.tags.temporary_names, self.person_ids)
         except Exception as error:
+            self.save_state.setText('保存失败')
             self.statusBar().showMessage('保存失败 · 内容仍保留，请重试：' + str(error))
             if notify:
                 self.fail(error)
             return False
         self.dirty = False
+        self.save_state.setText('已保存')
         if self.statusBar().currentMessage().startswith('保存失败'):
             self.statusBar().showMessage('数据目录：' + str(self.database.root))
         self.refresh_categories()
@@ -831,6 +907,12 @@ class MainWindow(QMainWindow):
 
     def item_text(self, article):
         shown_date = '时间线之外' if self.repository.is_outside(article.id) else article.diary_date
+        if shown_date == '未知-未知-未知':
+            shown_date = '日期未设置'
+        elif shown_date.endswith('-未知-未知'):
+            shown_date = shown_date.split('-')[0] + ' 年'
+        elif shown_date.endswith('-未知'):
+            shown_date = shown_date.rsplit('-', 1)[0]
         return f'{article.title}\n{shown_date}  ·  {len(article.body_text)} 字符'
 
     def refresh_drafts(self):
@@ -991,6 +1073,7 @@ class MainWindow(QMainWindow):
             rows = [article for article in rows if not self.repository.is_outside(article.id) and matches_day(article.diary_date, self.browse_date)]
         for article in rows:
             item = QListWidgetItem(self.item_text(article))
+            item.setToolTip(self.item_text(article))
             item.setData(Qt.ItemDataRole.UserRole, article.id)
             item.setData(Qt.ItemDataRole.UserRole + 1, article.pinned)
             if article.pinned:
@@ -1155,7 +1238,7 @@ class MainWindow(QMainWindow):
             self.timeline.setDate(QDate.fromString(self.browse_date, 'yyyy-MM-dd') if self.browse_date else self.date.date())
             return
         self.browse_date = date.toString('yyyy-MM-dd')
-        if not self.timeline.pressed:
+        if not self.timeline.pressed and self.timeline.selected != date:
             self.timeline.setDate(date)
         repaint = self.updatesEnabled()
         self.setUpdatesEnabled(False)
@@ -1305,6 +1388,17 @@ class MainWindow(QMainWindow):
         self.update_properties()
         self.loading = False
 
+    def photo_attachments(self):
+        import re
+        if not self.current_id:
+            return []
+        avatar_paths = self.editor.person_avatar_paths()
+        generated_avatar = r'人物头像-[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\.png'
+        return [row for row in self.attachments.list(self.current_id)
+                if row['mime_type'].startswith('image/')
+                and row['relative_path'] not in avatar_paths
+                and not re.fullmatch(generated_avatar, row['name'], re.IGNORECASE)]
+
     def update_properties(self):
         selected = self.selected_image_id() if hasattr(self, 'image_list') else None
         self.image_list.clear()
@@ -1317,8 +1411,11 @@ class MainWindow(QMainWindow):
         article = self.repository.get(self.current_id)
         self.timestamps.setText('创建  ' + article.created_at[:19].replace('T', ' ') +
                                 '\n修改  ' + article.updated_at[:19].replace('T', ' '))
+        photo_ids = {row['id'] for row in self.photo_attachments()}
         for attachment in self.attachments.list(self.current_id):
             if attachment['mime_type'].startswith('image/'):
+                if attachment['id'] not in photo_ids:
+                    continue
                 item = QListWidgetItem(attachment['caption'] or attachment['name'])
                 item.setData(Qt.ItemDataRole.UserRole, attachment['id'])
                 item.setToolTip(attachment['name'])
@@ -1343,6 +1440,7 @@ class MainWindow(QMainWindow):
         editable = bool(self.current_id) and not self.trash and not self.preview.isChecked()
         self.editor.setReadOnly(not editable)
         self.format_toolbar.set_editable(editable)
+        self.format_toolbar.setVisible(not self.preview.isChecked())
         self.editor.set_end_marker_visible(bool(self.current_id) and self.preview.isChecked() and not self.trash)
         for widget in (self.title, self.date, self.categories, self.tags, self.bold,
                        self.italic, self.center_button, self.indent_button, self.image_button, self.attachment_button, self.people_button,
@@ -1360,7 +1458,10 @@ class MainWindow(QMainWindow):
         target = self.center_layout if reading else self.photo_layout
         if self.image_list.parentWidget() != target.parentWidget():
             self.image_list.hover_card.hide()
-            target.addWidget(self.image_list)
+            if reading:
+                target.addWidget(self.image_list)
+            else:
+                target.insertWidget(target.indexOf(self.image_hint)+1, self.image_list, 1)
         self.image_list.set_horizontal(reading)
         self.image_list.setMinimumHeight(170 if reading else 260)
         self.image_list.setMaximumHeight(170 if reading else 320)
@@ -1480,14 +1581,19 @@ class MainWindow(QMainWindow):
         self.format_toolbar.emphasis('italic')
 
     def insert_image(self):
+        if not self.current_id or self.editor.isReadOnly():
+            return
         path, _ = QFileDialog.getOpenFileName(self, '插入图片', '', '图片 (*.png *.jpg *.jpeg *.webp *.bmp)')
         if not path:
+            return
+        compress = choose_image_compression(self)
+        if compress is None:
             return
         try:
             reader = QImageReader(path)
             if not reader.canRead():
                 raise ValueError('无法读取这张图片')
-            relative = self.attachments.add(self.current_id, Path(path))
+            relative = self.attachments.add_image(self.current_id, Path(path), compress=compress)
             attachment = next(row for row in self.attachments.list(self.current_id) if row['relative_path'] == relative)
             self.editor.insert_image_link(attachment['id'], Path(path).stem)
             self.update_properties()
@@ -1495,10 +1601,18 @@ class MainWindow(QMainWindow):
             self.fail(error)
 
     def add_attachment(self):
+        if not self.current_id or self.editor.isReadOnly():
+            return
         path, _ = QFileDialog.getOpenFileName(self, '添加附件')
         if path:
             try:
-                self.attachments.add(self.current_id, Path(path))
+                if QImageReader(path).canRead():
+                    compress = choose_image_compression(self)
+                    if compress is None:
+                        return
+                    self.attachments.add_image(self.current_id, Path(path), compress=compress)
+                else:
+                    self.attachments.add(self.current_id, Path(path))
                 self.update_properties()
             except Exception as error:
                 self.fail(error)
@@ -1510,7 +1624,11 @@ class MainWindow(QMainWindow):
     def open_image(self, attachment_id):
         if not self.current_id:
             return
-        images = [row for row in self.attachments.list(self.current_id) if row['mime_type'].startswith('image/')]
+        images = self.photo_attachments()
+        if not any(row['id'] == attachment_id for row in images):
+            # An inline avatar can still be opened explicitly, outside the photo gallery.
+            images = [row for row in self.attachments.list(self.current_id)
+                      if row['id'] == attachment_id and row['mime_type'].startswith('image/')]
         index = next((i for i, row in enumerate(images) if row['id'] == attachment_id), None)
         if index is None:
             self.fail('图片入口对应的附件不存在。')
@@ -1635,10 +1753,15 @@ class MainWindow(QMainWindow):
                 item.widget().deleteLater()
         for i, person in enumerate(people):
             button = QPushButton(person['name'] + '\n' + person['code'])
-            button.setToolTip(person['name'] + '\n在光标处插入代号：' + person['code'])
+            button.setToolTip(person['name'] + '\n按上方“人物引用方式”插入代号或小圆形头像')
+            if person.get('avatar'):
+                from northdiary.services.person_media import circular_avatar
+                from PySide6.QtGui import QPixmap
+                button.setIcon(QIcon(QPixmap.fromImage(circular_avatar(person['avatar']))))
+                button.setIconSize(QSize(24, 24))
             button.setMaximumWidth(155)
             button.setMinimumWidth(90)
-            button.clicked.connect(lambda checked=False, code=person['code']: self.insert_person_code(code))
+            button.clicked.connect(lambda checked=False, key=person['id']: self.insert_person_reference(key))
             self.shortcut_grid.addWidget(button, i//2, i%2)
         if not people:
             self.shortcut_grid.addWidget(label('暂无人物，请先在左侧人物档案中新建。'), 0, 0, 1, 2)
@@ -1656,6 +1779,28 @@ class MainWindow(QMainWindow):
         if not self.current_id or self.editor.isReadOnly(): return
         self.editor.insertPlainText(code)
         self.editor.setFocus()
+
+    def insert_person_reference(self, key):
+        if not self.current_id or self.editor.isReadOnly(): return
+        from northdiary.storage.people import PeopleRepository
+        person = PeopleRepository(self.database).get(key)
+        if self.person_reference_mode.currentIndex() == 0:
+            self.insert_person_code(person['code']); return
+        if not person.get('avatar'):
+            QMessageBox.information(self, '请先设置头像', '请在人物档案中编辑此人物，选择一张头像图片。')
+            return
+        from tempfile import TemporaryDirectory
+        from northdiary.services.person_media import circular_avatar
+        try:
+            with TemporaryDirectory() as temporary:
+                source = Path(temporary) / ('人物头像-' + person['id'] + '.png')
+                if not circular_avatar(person['avatar']).save(str(source), 'PNG'):
+                    raise OSError('无法生成头像图片')
+                relative = self.attachments.add(self.current_id, source)
+            self.editor.insert_person_avatar(relative, person['name'])
+            self.update_properties(); self.editor.setFocus()
+        except Exception as error:
+            self.fail(error)
 
     def open_people(self):
         if not self.save(True): return

@@ -1,12 +1,15 @@
 """Person cards, profiles and the article person picker share one catalog."""
 from html import escape
 from PySide6.QtCore import Qt, QSize, Signal, QRectF
-from PySide6.QtGui import QPainter, QPen, QFont, QColor
+from PySide6.QtGui import QPainter, QPen, QFont, QColor, QPixmap, QIcon, QPainterPath
 from PySide6.QtWidgets import (
     QAbstractButton, QDialog, QWidget, QVBoxLayout, QHBoxLayout, QGridLayout,
     QScrollArea, QLineEdit, QPushButton, QLabel, QStackedWidget, QFormLayout,
-    QDialogButtonBox, QMessageBox, QListWidget, QListWidgetItem, QTextEdit, QLayout,
+    QDialogButtonBox, QMessageBox, QListWidget, QListWidgetItem, QTextEdit, QLayout, QFileDialog, QFrame,
 )
+from northdiary.services.person_media import IMAGE_FILTER, decode_image, read_profile_image, encode_image, make_photo
+from northdiary.ui.image_board import ImageBoard
+from northdiary.ui.image_viewer import ImageViewer
 from northdiary.storage.people import PeopleRepository
 from northdiary.ui.tag_picker import TagPicker
 from northdiary.ui.theme import color, themed_css, theme_name, apply_theme
@@ -15,7 +18,7 @@ from PySide6.QtGui import QPalette
 
 def relationship_color(value, widget):
     name = theme_name(widget)
-    dark = name in ('dark', 'wine') if name else widget.palette().color(QPalette.ColorRole.Window).lightness() < 128
+    dark = name in ('dark', 'wine', 'radio') if name else widget.palette().color(QPalette.ColorRole.Window).lightness() < 128
     return QColor(themed_css(value, dark, name))
 
 
@@ -25,7 +28,16 @@ def relationship_text(person):
     return '、'.join(normal + temporary) or '未设置关系'
 
 
-def paint_avatar(painter, rect, widget, selected=False):
+def paint_avatar(painter, rect, widget, selected=False, image=None):
+    if image is not None and not image.isNull():
+        painter.save()
+        painter.setRenderHint(QPainter.RenderHint.SmoothPixmapTransform)
+        clip = QPainterPath(); clip.addEllipse(rect); painter.setClipPath(clip)
+        painter.drawImage(rect, image); painter.restore()
+        if selected:
+            painter.setPen(QPen(color('#315c4d', widget), 3)); painter.setBrush(Qt.BrushStyle.NoBrush)
+            painter.drawEllipse(rect.adjusted(1, 1, -1, -1))
+        return
     painter.setPen(Qt.PenStyle.NoPen)
     painter.setBrush(color('#315c4d' if selected else '#e9ede7', widget))
     painter.drawEllipse(rect)
@@ -36,21 +48,27 @@ def paint_avatar(painter, rect, widget, selected=False):
 
 
 class Avatar(QWidget):
-    def __init__(self, parent=None):
+    def __init__(self, parent=None, value=''):
         super().__init__(parent)
         self.setFixedSize(96, 96)
-        self.setAccessibleName('人物默认头像')
+        self.set_value(value)
+
+    def set_value(self, value):
+        self.image = decode_image(value) if value else None
+        self.setAccessibleName('人物照片头像' if value else '人物默认头像')
+        self.update()
 
     def paintEvent(self, event):
         p = QPainter(self)
         p.setRenderHint(QPainter.RenderHint.Antialiasing)
-        paint_avatar(p, QRectF(4, 4, 88, 88), self)
+        paint_avatar(p, QRectF(4, 4, 88, 88), self, image=self.image)
 
 
 class PersonCard(QAbstractButton):
     def __init__(self, person, selected=False, parent=None):
         super().__init__(parent)
         self.person = person
+        self.avatar_image = decode_image(person['avatar']) if person.get('avatar') else None
         self.setCheckable(True)
         self.setChecked(selected)
         self.setFixedSize(148, 202)
@@ -67,7 +85,7 @@ class PersonCard(QAbstractButton):
         p.setPen(QPen(color('#315c4d' if self.isChecked() else '#d4ddd1', self), 2 if self.hasFocus() else 1))
         p.setBrush(color('#fffefa', self))
         p.drawRoundedRect(QRectF(2, 2, 144, 198), 12, 12)
-        paint_avatar(p, QRectF(36, 22, 76, 76), self, self.isChecked())
+        paint_avatar(p, QRectF(36, 22, 76, 76), self, self.isChecked(), self.avatar_image)
         p.setPen(color('#273b37', self))
         font = QFont(self.font()); font.setPointSize(12); font.setBold(True); p.setFont(font)
         p.drawText(QRectF(10, 111, 128, 30), Qt.AlignmentFlag.AlignCenter,
@@ -105,9 +123,20 @@ class PersonEditor(QDialog):
         self.repository = repository
         self.person = dict(person) if person else None
         self.setWindowTitle('编辑人物' if person else '新增人物')
-        self.resize(540, 580)
+        self.resize(560, 700)
         self.setMinimumWidth(480)
-        layout = QVBoxLayout(self)
+        outer = QVBoxLayout(self)
+        scroll = QScrollArea(); scroll.setWidgetResizable(True); scroll.setFrameShape(QFrame.Shape.NoFrame)
+        body = QWidget(); layout = QVBoxLayout(body); scroll.setWidget(body); outer.addWidget(scroll, 1)
+        self.avatar_value = (person or {}).get('avatar', '')
+        self.avatar = Avatar(value=self.avatar_value)
+        avatar_row = QHBoxLayout(); avatar_row.addWidget(self.avatar)
+        choose = QPushButton('选择头像图片'); choose.clicked.connect(self.choose_avatar); avatar_row.addWidget(choose)
+        self.clear_avatar_button = QPushButton('恢复默认头像')
+        self.clear_avatar_button.clicked.connect(self.clear_avatar); avatar_row.addWidget(self.clear_avatar_button)
+        avatar_row.addStretch(); layout.addLayout(avatar_row)
+        avatar_hint = QLabel('图片将居中裁成圆形头像；也可在照片栏中选择照片设为头像。')
+        avatar_hint.setObjectName('muted'); avatar_hint.setWordWrap(True); layout.addWidget(avatar_hint)
         form = QFormLayout()
         form.setVerticalSpacing(14)
         self.fields = {}
@@ -129,19 +158,32 @@ class PersonEditor(QDialog):
         form.addRow('', hint)
         layout.addLayout(form)
         self.error = QLabel(); self.error.setWordWrap(True); self.error.setTextFormat(Qt.TextFormat.PlainText)
-        layout.addWidget(self.error)
+        outer.addWidget(self.error)
         buttons = QDialogButtonBox(QDialogButtonBox.StandardButton.Save | QDialogButtonBox.StandardButton.Cancel)
-        buttons.accepted.connect(self.save); buttons.rejected.connect(self.reject); layout.addWidget(buttons)
+        buttons.accepted.connect(self.save); buttons.rejected.connect(self.reject); outer.addWidget(buttons)
         buttons.button(QDialogButtonBox.StandardButton.Save).setText('保存人物')
         buttons.button(QDialogButtonBox.StandardButton.Cancel).setText('取消')
         name_theme = theme_name(parent) if parent else None
-        dark = name_theme in ('dark', 'wine') if name_theme else self.palette().color(QPalette.ColorRole.Window).lightness() < 128
+        dark = name_theme in ('dark', 'wine', 'radio') if name_theme else self.palette().color(QPalette.ColorRole.Window).lightness() < 128
         apply_theme(self, dark, name_theme)
+
+    def choose_avatar(self):
+        path, _ = QFileDialog.getOpenFileName(self, '选择人物头像', '', IMAGE_FILTER)
+        if not path: return
+        try:
+            self.avatar_value = read_profile_image(path, avatar=True)
+            self.avatar.set_value(self.avatar_value); self.error.clear()
+        except Exception as error:
+            self.error.setText('头像读取失败：' + str(error))
+
+    def clear_avatar(self):
+        self.avatar_value = ''; self.avatar.set_value('')
 
     def save(self):
         values = {k: (v.toPlainText() if isinstance(v, QTextEdit) else v.text()).strip() for k, v in self.fields.items()}
         values['relationships'] = sorted(self.relationships.normal_names)
         values['temporary_relationships'] = sorted(self.relationships.temporary_names)
+        values['avatar'] = self.avatar_value
         try:
             if self.person:
                 self.person.update(values); self.repository.save(self.person)
@@ -149,7 +191,17 @@ class PersonEditor(QDialog):
                 self.person = self.repository.create(**values)
         except Exception as error:
             self.error.setText('保存失败，填写内容已保留：' + str(error)); return
+        self.person = self.repository.get(self.person['id'])
         self.accept()
+
+
+class PersonPhotoViewer(ImageViewer):
+    def load(self):
+        self.scene.clear(); self.view.resetTransform()
+        photo = self.images[self.index]
+        self.scene.addPixmap(QPixmap.fromImage(decode_image(photo['data'])))
+        self.info.setText(f"{self.index + 1} / {len(self.images)}  ·  {photo['name']}")
+        self.scene.setSceneRect(self.scene.itemsBoundingRect()); self.fit()
 
 
 class SelectedPeopleScroll(QScrollArea):
@@ -187,7 +239,7 @@ class PeopleDialog(QDialog):
         self.scroll.setWidget(self.card_body); listing.addWidget(self.scroll, 1)
         self.empty = QLabel('暂无人物，点击“新增人物”创建档案。'); self.empty.setAlignment(Qt.AlignmentFlag.AlignCenter)
         listing.addWidget(self.empty)
-        add = QPushButton('＋ 新增人物'); add.clicked.connect(self.add_person); listing.addWidget(add)
+        add = QPushButton('＋ 新增人物'); add.setObjectName('primary'); add.clicked.connect(self.add_person); listing.addWidget(add)
         self.stack.addWidget(self.list_page)
         self.detail = QWidget(); self.detail_layout = QVBoxLayout(self.detail); self.stack.addWidget(self.detail)
         self.selected_scroll = SelectedPeopleScroll(); self.selected_scroll.setWidgetResizable(False); self.selected_scroll.setFixedHeight(112)
@@ -267,7 +319,7 @@ class PeopleDialog(QDialog):
         self.clear_layout(self.detail_layout)
         back = QPushButton('← 返回人物列表'); back.clicked.connect(self.back); self.detail_layout.addWidget(back)
         scroll = QScrollArea(); scroll.setWidgetResizable(True); body = QWidget(); layout = QVBoxLayout(body)
-        avatar_row = QHBoxLayout(); avatar_row.addStretch(); avatar_row.addWidget(Avatar()); avatar_row.addStretch()
+        avatar_row = QHBoxLayout(); avatar_row.addStretch(); avatar_row.addWidget(Avatar(value=person.get('avatar', ''))); avatar_row.addStretch()
         star = QLabel('★' if person['starred'] else ''); star.setFixedWidth(24)
         star.setAccessibleName('已星标' if person['starred'] else '未星标')
         avatar_row.addWidget(star, 0, Qt.AlignmentFlag.AlignTop); layout.addLayout(avatar_row)
@@ -292,6 +344,26 @@ class PeopleDialog(QDialog):
         events.itemDoubleClicked.connect(lambda item: self.open_event(item.data(Qt.ItemDataRole.UserRole)))
         layout.addWidget(events, 1)
         if not events.count(): layout.addWidget(QLabel('暂无带此人物标签的文章。'))
+        layout.addWidget(QLabel('照片'))
+        photo_hint = QLabel('保存适合浏览的照片副本，原文件不变。双击查看；选中后可设为头像或移除。')
+        photo_hint.setObjectName('muted'); photo_hint.setWordWrap(True); layout.addWidget(photo_hint)
+        self.photo_board = ImageBoard(); self.photo_board.setMinimumHeight(190); self.photo_board.setMaximumHeight(300)
+        self.profile_photos = person.get('photos', [])
+        for photo in self.profile_photos:
+            item = QListWidgetItem(photo['name']); item.setData(Qt.ItemDataRole.UserRole, photo['id'])
+            item.setToolTip(photo['name']); item.setIcon(QIcon(QPixmap.fromImage(decode_image(photo['data']))))
+            self.photo_board.addItem(item)
+        self.photo_board.itemDoubleClicked.connect(self.view_photo)
+        layout.addWidget(self.photo_board)
+        if not self.profile_photos: layout.addWidget(QLabel('暂无照片，点击“添加照片”保存与此人物有关的照片。'))
+        photo_buttons = QHBoxLayout()
+        add_photo = QPushButton('添加照片'); add_photo.clicked.connect(self.add_photos); photo_buttons.addWidget(add_photo)
+        self.photo_actions = []
+        for title, action in [('查看', self.view_photo), ('设为头像', self.photo_as_avatar), ('移除照片', self.remove_photo)]:
+            button = QPushButton(title); button.clicked.connect(action); button.setEnabled(False)
+            photo_buttons.addWidget(button); self.photo_actions.append(button)
+        self.photo_board.itemSelectionChanged.connect(self.update_photo_actions)
+        layout.addLayout(photo_buttons)
         scroll.setWidget(body); self.detail_layout.addWidget(scroll, 1)
         buttons = QHBoxLayout()
         for text, fn in [('编辑', self.edit_person), ('删除', self.delete_person),
@@ -299,6 +371,52 @@ class PeopleDialog(QDialog):
                          ('取消星标' if person['starred'] else '星标', lambda: self.set_flag('starred'))]:
             button = QPushButton(text); button.clicked.connect(fn); buttons.addWidget(button)
         self.detail_layout.addLayout(buttons); self.stack.setCurrentWidget(self.detail)
+
+    def update_photo_actions(self):
+        for button in self.photo_actions: button.setEnabled(bool(self.photo_board.selectedItems()))
+
+    def selected_photo(self):
+        items = self.photo_board.selectedItems()
+        if not items: return None
+        return next(p for p in self.profile_photos if p['id'] == items[0].data(Qt.ItemDataRole.UserRole))
+
+    def add_photos(self):
+        paths, _ = QFileDialog.getOpenFileNames(self, '添加人物照片', '', IMAGE_FILTER)
+        if not paths: return
+        try:
+            # Decode the entire batch before committing anything.
+            photos = [make_photo(path) for path in paths]
+            person = self.repository.get(self.current_person)
+            person['photos'] = person.get('photos', []) + photos
+            self.repository.save(person); self.show_person(self.current_person); self.refresh()
+        except Exception as error: QMessageBox.warning(self, '添加照片失败', str(error))
+
+    def view_photo(self, *_):
+        photo = self.selected_photo()
+        if photo is None: return
+        dialog = PersonPhotoViewer(self.profile_photos, self.profile_photos.index(photo), None, self)
+        dialog.exec(); dialog.deleteLater()
+
+    def photo_as_avatar(self):
+        photo = self.selected_photo()
+        if photo is None: return
+        try:
+            person = self.repository.get(self.current_person)
+            person['avatar'] = encode_image(decode_image(photo['data']), avatar=True)
+            self.repository.save(person); self.show_person(self.current_person); self.refresh()
+        except Exception as error: QMessageBox.warning(self, '设置头像失败', str(error))
+
+    def remove_photo(self):
+        photo = self.selected_photo()
+        if photo is None: return
+        if QMessageBox.question(self, '移除照片', '从人物档案中移除这张照片？原文件和已设置的头像会保留。',
+                                QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+                                QMessageBox.StandardButton.No) != QMessageBox.StandardButton.Yes: return
+        try:
+            person = self.repository.get(self.current_person)
+            person['photos'] = [p for p in person.get('photos', []) if p['id'] != photo['id']]
+            self.repository.save(person); self.show_person(self.current_person); self.refresh()
+        except Exception as error: QMessageBox.warning(self, '移除照片失败', str(error))
 
     def back(self):
         self.refresh(); self.stack.setCurrentWidget(self.list_page)

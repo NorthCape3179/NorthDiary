@@ -70,32 +70,22 @@ class DateDialog(QDialog):
         owner = parent
         while owner is not None:
             if hasattr(owner, 'repository'):
-                self.article_dates = {article.diary_date for article in owner.repository.list()}
+                self.article_dates = {article.diary_date for article in owner.repository.list()
+                                      if parse_date(article.diary_date).isValid()}
                 break
             owner = owner.parentWidget()
         self.icon_key = None
         self.shown = QDate(selected.year(), selected.month(), 1)
         self.setWindowTitle(title)
         self.setFixedWidth(330)
-        dark = theme_name(self) in ('dark', 'wine')
+        dark = theme_name(self) in ('dark', 'wine', 'radio')
         self.setStyleSheet(themed_css('''
             QDialog { background: #fffefa; }
             QToolButton { border: none; border-radius: 7px; background: transparent; color: #273b37; }
             QToolButton:hover { background: #e0e8db; }
-            QToolButton#calendarDay:checked { background: #315c4d; color: white; }
-            QToolButton#calendarDay[outside="true"] { color: #a0aaa0; }
-            QToolButton#calendarDay[today="true"] { border: 1px solid #7d9b89; }
             QSpinBox { background: transparent; border: none; color: #273b37; font-size: 14px; }
             QLineEdit { padding: 6px 8px; }
         ''', dark, theme_name(self)))
-        accent = color('#7d9b89' if dark else '#315c4d', self).name()
-        empty = '#ffffff' if dark else color('#a0aaa0', self).name()
-        self.setStyleSheet(self.styleSheet() + f"""
-            QToolButton#calendarDay {{ color: {empty}; }}
-            QToolButton#calendarDay[outside="true"] {{ color: {empty}; }}
-            QToolButton#calendarDay[hasArticles="true"] {{ color: {accent}; font-weight: 700; }}
-            QToolButton#calendarDay:checked {{ background: transparent; border: 2px solid {accent}; }}
-        """)
         layout = QVBoxLayout(self)
         layout.setContentsMargins(18, 16, 18, 16)
         layout.setSpacing(10)
@@ -141,7 +131,26 @@ class DateDialog(QDialog):
             button.clicked.connect(lambda checked=False, key=precision_key: self.choose_unknown(key))
             unknown_row.addWidget(button)
         if allow_partial: layout.addLayout(unknown_row)
-        grid = QGridLayout(); grid.setSpacing(3)
+        self.calendar_grid = QWidget(self)
+        self.calendar_grid.setObjectName('calendarGrid')
+        # Chrome themes the dialog root during Polish. Keep calendar-specific
+        # rules on their own child so they survive that and later theme changes.
+        calendar_css = '''
+            QWidget#calendarGrid { background: transparent; }
+            QToolButton#calendarDay { border: none; border-radius: 7px; background: transparent; color: __calendar_empty__; font-weight: 400; }
+            QToolButton#calendarDay:enabled:hover { background: #e0e8db; }
+            QToolButton#calendarDay[today="true"] { border: 1px solid #7d9b89; }
+            QToolButton#calendarDay[hasArticles="true"] { color: __button_outline__; font-weight: 700; }
+            QToolButton#calendarDay:checked { background: transparent; border: 2px solid __button_outline__; }
+            QToolButton#calendarDay:disabled { color: #a0aaa0; border: none; font-weight: 400; }
+        '''
+        rendered = themed_css(calendar_css, dark, theme_name(self))
+        self.calendar_grid.setProperty('themeSourceStyle', calendar_css)
+        self.calendar_grid.setProperty('themeRenderedStyle', rendered)
+        self.calendar_grid.setStyleSheet(rendered)
+        grid = QGridLayout(self.calendar_grid)
+        grid.setContentsMargins(0, 0, 0, 0)
+        grid.setSpacing(3)
         for column, name in enumerate('一二三四五六日'):
             label = QLabel(name); label.setAlignment(Qt.AlignmentFlag.AlignCenter)
             grid.addWidget(label, 0, column)
@@ -152,7 +161,7 @@ class DateDialog(QDialog):
             button.clicked.connect(lambda checked=False, b=button: self.choose(b.property('date')))
             grid.addWidget(button, index//7+1, index%7)
             self.days.append(button)
-        layout.addLayout(grid)
+        layout.addWidget(self.calendar_grid)
         self.error = QLabel(''); self.error.setWordWrap(True); self.error.hide()
         layout.addWidget(self.error)
         footer = QHBoxLayout()
@@ -190,8 +199,7 @@ class DateDialog(QDialog):
             button.setText(str(date.day()))
             button.setProperty('date', date)
             text = date.toString('yyyy-MM-dd')
-            has_articles = any(value in self.article_dates for value in
-                               (text, text[:7] + '-未知', text[:4] + '-未知-未知'))
+            has_articles = text in self.article_dates
             button.setProperty('hasArticles', has_articles)
             button.setToolTip(text + (' · 有文章' if has_articles else ' · 暂无文章'))
             button.setProperty('outside', date.month() != self.shown.month())

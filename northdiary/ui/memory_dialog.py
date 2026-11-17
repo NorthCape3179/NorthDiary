@@ -3,7 +3,7 @@ from pathlib import PurePosixPath
 import random
 
 from lxml import html, etree
-from PySide6.QtCore import Qt, QSize
+from PySide6.QtCore import Qt, QSize, QUrl
 from PySide6.QtGui import QIcon, QFont, QTextDocument
 from PySide6.QtWidgets import QDialog, QVBoxLayout, QHBoxLayout, QLabel, QPushButton, QTextEdit, QListWidgetItem
 
@@ -12,6 +12,26 @@ from northdiary.ui.image_board import ImageBoard
 from northdiary.ui.image_viewer import ImageViewer, read_image
 from northdiary.ui.season_background import SeasonPaper
 from northdiary.ui.theme import apply_theme, theme_name
+from northdiary.ui.editor import ArticleEditor
+
+
+def memory_avatar_html(source):
+    """Keep small managed avatar snapshots in the otherwise plain memory view."""
+    from html import escape
+    from uuid import uuid4
+    document = html.document_fromstring(source or '<p></p>')
+    replacements = {}
+    for node in document.xpath('//img[@width="24"][@height="24"]'):
+        path = node.get('src', '')
+        import re
+        if not re.fullmatch(r'attachments/[A-Za-z0-9_-]+\.png', path): continue
+        token = 'AVATAR' + uuid4().hex
+        replacements[token] = '<img src="' + escape(path, quote=True) + '" width="24" height="24" alt="' + escape(node.get('alt', ''), quote=True) + '">'
+        node.tag = 'span'; node.attrib.clear(); node.text = token
+    if not replacements: return None
+    text = escape(plain_memory_text(etree.tostring(document, encoding='unicode', method='html'))).replace('\n', '<br>')
+    for token, image in replacements.items(): text = text.replace(token, image)
+    return text
 
 
 def plain_memory_text(source):
@@ -55,7 +75,8 @@ class MemoryDialog(QDialog):
         self.date.setObjectName('muted')
         self.date.setTextFormat(Qt.TextFormat.PlainText)
         column.addWidget(self.date)
-        self.editor = QTextEdit()
+        self.editor = ArticleEditor()
+        self.editor.document().setBaseUrl(QUrl.fromLocalFile(str(self.root) + '/'))
         self.editor.setReadOnly(True)
         self.editor.setAcceptRichText(False)
         self.editor.setStyleSheet('QTextEdit { background: transparent; border: none; }')
@@ -118,7 +139,9 @@ class MemoryDialog(QDialog):
         self.current_id = article.id
         self.title.setText(article.title)
         self.date.setText(article.diary_date)
-        self.editor.setPlainText(plain_memory_text(article.body_html))
+        avatar_html = memory_avatar_html(article.body_html)
+        if avatar_html is None: self.editor.setPlainText(plain_memory_text(article.body_html))
+        else: self.editor.setHtml(avatar_html)
         self.editor.verticalScrollBar().setValue(0)
         date, precision = parse_partial(article.diary_date)
         self.paper.month_unknown = precision == 'year' or not date.isValid()
