@@ -1,0 +1,16 @@
+{
+  "articles": [
+    {
+      "id": "2e9ef7a8-2aca-4d7d-9227-482158c5fd63",
+      "target": "2e645b10-4afb-5bbc-9630-a4b75c4b38f7",
+      "fingerprint": "b64e00b40850ae62358e9b47ca9c54273313b44343064e8ce6e7fa8e8e019b2c"
+    },
+    {
+      "id": "4e9bb3f9-9d5a-47d3-b03b-aaed057f0cfa",
+      "target": "c352346c-6fcd-520a-bb14-224b404d7c18",
+      "fingerprint": "283d5fc15d350a383250620afde23e078128a52d36df5800083d7a0d3ea072c8"
+    }
+  ],
+  "person": "48d52705-681d-4998-8183-86679e48826c",
+  "person_copy": "fb116ae0-3e3a-5ad1-a9bc-aa09a7ea838b"
+}
